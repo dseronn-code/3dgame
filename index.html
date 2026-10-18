@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1b2a">
+<title>Arena Royale 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<!-- ================= HUD ================= -->
+<div id="hud" class="hidden">
+  <div id="topLeft">
+    <div class="pill"><span class="lbl">ONDA</span> <span id="waveVal">1</span></div>
+    <div class="pill"><span class="lbl">PONTOS</span> <span id="scoreVal">0</span></div>
+    <div class="pill"><span class="lbl">ABATES</span> <span id="killsVal">0</span></div>
+    <div id="comboBox" class="pill combo hidden">x<span id="comboVal">1</span> COMBO</div>
+  </div>
+  <div id="topCenter">
+    <div id="enemiesLeft">Inimigos: <b id="enemiesVal">0</b></div>
+    <div id="bossBar" class="hidden"><div class="bossName">CHEFÃO</div><div class="bossTrack"><div id="bossFill"></div></div></div>
+  </div>
+  <canvas id="minimap" width="160" height="160"></canvas>
+  <div id="killFeed"></div>
+
+  <div id="crosshair">
+    <div class="ch t"></div><div class="ch b"></div><div class="ch l"></div><div class="ch r"></div>
+    <div class="dot"></div>
+  </div>
+  <div id="hitmarker"><div></div><div></div><div></div><div></div></div>
+
+  <div id="bottomCenter">
+    <div id="hpRow">
+      <div id="hpTrack"><div id="hpLag"></div><div id="hpFill"></div></div>
+      <div id="hpText">100</div>
+    </div>
+  </div>
+  <div id="ammoBox">
+    <div id="ammoVal"><span id="ammoCur">30</span><span id="ammoMax">/30</span></div>
+    <div id="reloadTrack"><div id="reloadFill"></div></div>
+    <div id="reloadHint" class="hidden">RECARREGAR [R]</div>
+  </div>
+
+  <div id="announce"></div>
+  <div id="streak"></div>
+  <div id="vignette"></div>
+  <div id="lowHp"></div>
+  <div id="dmgDirs"></div>
+  <div id="popups"></div>
+  <button id="btnPause" class="touchOnly">II</button>
+</div>
+
+<!-- ================= TOUCH CONTROLS ================= -->
+<div id="touchUI" class="hidden">
+  <div id="joyBase"><div id="joyKnob"></div><div id="sprintTip">▲ CORRER</div></div>
+  <div class="tbtn" id="btnFireL" data-act="fire"><span>🔫</span></div>
+  <div class="tbtn" id="btnFire" data-act="fire"><span>🔫</span></div>
+  <div class="tbtn" id="btnAim" data-act="aim"><span>🎯</span></div>
+  <div class="tbtn" id="btnJump" data-act="jump"><span>⤒</span></div>
+  <div class="tbtn" id="btnCrouch" data-act="crouch"><span>⤓</span></div>
+  <div class="tbtn" id="btnReload" data-act="reload"><span>⟳</span></div>
+</div>
+
+<!-- ================= MENUS ================= -->
+<div id="menu" class="screen">
+  <div class="panel">
+    <h1>ARENA<br><span>ROYALE</span></h1>
+    <p class="tag">Sobreviva às ondas. Fique mais forte. Vire lenda.</p>
+    <button id="btnPlay" class="big">JOGAR</button>
+    <div id="bestLine">Recorde: <b id="bestVal">0</b></div>
+    <div class="controls desktopOnly">
+      <div><kbd>W A S D</kbd> mover</div>
+      <div><kbd>Mouse</kbd> girar câmera</div>
+      <div><kbd>Clique</kbd> atirar</div>
+      <div><kbd>Botão dir.</kbd> mirar</div>
+      <div><kbd>Shift</kbd> correr</div>
+      <div><kbd>Espaço</kbd> pular</div>
+      <div><kbd>C</kbd> agachar</div>
+      <div><kbd>R</kbd> recarregar</div>
+    </div>
+    <div class="controls touchOnly">
+      <div>🕹️ Analógico esquerdo: andar (empurre até o fim para correr)</div>
+      <div>👆 Arraste no lado direito: girar câmera</div>
+      <div>🔫 Segure o botão de tiro e arraste para mirar</div>
+    </div>
+  </div>
+</div>
+
+<div id="pause" class="screen hidden">
+  <div class="panel">
+    <h2>PAUSADO</h2>
+    <button id="btnResume" class="big">CONTINUAR</button>
+    <button id="btnQuit" class="small">Sair para o menu</button>
+  </div>
+</div>
+
+<div id="upgrade" class="screen hidden">
+  <div class="panel wide">
+    <h2 id="upTitle">ONDA CONCLUÍDA!</h2>
+    <p class="tag">Escolha uma melhoria</p>
+    <div id="cards"></div>
+  </div>
+</div>
+
+<div id="over" class="screen hidden">
+  <div class="panel">
+    <h2 class="red">VOCÊ FOI ELIMINADO</h2>
+    <div id="newRecord" class="hidden">🏆 NOVO RECORDE! 🏆</div>
+    <div class="stats">
+      <div><span>Pontos</span><b id="ovScore">0</b></div>
+      <div><span>Onda</span><b id="ovWave">0</b></div>
+      <div><span>Abates</span><b id="ovKills">0</b></div>
+      <div><span>Headshots</span><b id="ovHeads">0</b></div>
+      <div><span>Recorde</span><b id="ovBest">0</b></div>
+    </div>
+    <button id="btnAgain" class="big">JOGAR DE NOVO</button>
+    <button id="btnMenu" class="small">Menu</button>
+  </div>
+</div>
+
+<div id="rotateHint">📱↻ Gire o celular para jogar na horizontal</div>
+
+<script type="module" src="game.js"></script>
+</body>
+</html>
