@@ -4,7 +4,20 @@ Shooter 3D em terceira pessoa, no estilo Free Fire / Fortnite, que roda direto n
 
 Sobreviva a ondas de inimigos cada vez mais fortes. Ao fim de cada onda você escolhe **1 de 3 melhorias** (dano, cadência, tiro múltiplo, balas explosivas, pulo duplo, vampirismo…), então cada partida monta uma build diferente. A cada 5 ondas aparece um **chefão**.
 
-## Como jogar
+## Android (APK)
+
+O APK pronto está em [`dist/ArenaRoyale.apk`](dist/ArenaRoyale.apk). Copie para o celular, abra e permita "instalar apps desconhecidos" quando o Android pedir. O jogo roda offline, em tela cheia e na horizontal. No celular, o botão voltar pausa o jogo; apertando de novo em até 2 segundos, o app fecha.
+
+Para gerar o APK de novo (não precisa de Android Studio nem do Android SDK, só Java, curl, unzip e zip):
+
+```bash
+./android/build.sh          # gera dist/ArenaRoyale.apk
+VERSION_CODE=2 VERSION_NAME=1.1 ./android/build.sh   # para uma nova versão
+```
+
+O app é uma WebView nativa (`android/src/.../MainActivity.java`) que carrega os arquivos do jogo de dentro do APK.
+
+## Como jogar no navegador
 
 O jogo usa módulos ES, então precisa de um servidor local (abrir o `index.html` direto pelo arquivo não funciona):
 
@@ -48,3 +61,5 @@ Headshots dão dano extra; abates em sequência aumentam o multiplicador de comb
 - `style.css`: visual da interface
 - `game.js`: o jogo inteiro (mundo, personagem, câmera em terceira pessoa, IA, ondas, melhorias, áudio sintetizado)
 - `lib/three.module.min.js`: Three.js r160
+- `android/`: app Android (manifest, Activity, ícones, script de build)
+- `dist/ArenaRoyale.apk`: APK pronto para instalar
