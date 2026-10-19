@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gera dist/ArenaRoyale.apk sem precisar do Android SDK nem do Android Studio.
+# Gera dist/Echoes.apk sem precisar do Android SDK nem do Android Studio.
 # Requisitos: Java 11+ (javac), curl, unzip, zip.
 set -euo pipefail
 
@@ -7,10 +7,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(dirname "$HERE")"
 TOOLS="$HERE/.tools"
 BUILD="$HERE/build"
-OUT="$ROOT/dist/ArenaRoyale.apk"
+OUT="$ROOT/dist/Echoes.apk"
 
 VERSION_CODE="${VERSION_CODE:-1}"
-VERSION_NAME="${VERSION_NAME:-1.0}"
+VERSION_NAME="${VERSION_NAME:-0.1}"
 
 fetch() { # url destino
   [ -f "$2" ] && return
@@ -32,11 +32,11 @@ AAPT2="$TOOLS/prebuilt/linux/aapt2_64"
 FRAMEWORK="$TOOLS/prebuilt/android-framework.jar"
 
 rm -rf "$BUILD"
-mkdir -p "$BUILD/assets/www" "$BUILD/classes" "$BUILD/res" "$(dirname "$OUT")"
+mkdir -p "$BUILD/assets/www" "$BUILD/classes" "$BUILD/stubs" "$BUILD/res" "$(dirname "$OUT")"
 
 # 1) Jogo web -> assets/www
-cp "$ROOT/index.html" "$ROOT/style.css" "$ROOT/game.js" "$BUILD/assets/www/"
-cp -r "$ROOT/lib" "$BUILD/assets/www/"
+cp "$ROOT/index.html" "$BUILD/assets/www/"
+cp -r "$ROOT/css" "$ROOT/js" "$ROOT/lib" "$BUILD/assets/www/"
 
 # 2) Recursos + manifest
 "$AAPT2" compile --dir "$HERE/res" -o "$BUILD/res/res.zip"
@@ -46,9 +46,9 @@ cp -r "$ROOT/lib" "$BUILD/assets/www/"
   --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" \
   -A "$BUILD/assets" "$BUILD/res/res.zip"
 
-# 3) Java -> dex
-javac --release 8 -nowarn -cp "$TOOLS/android.jar" -d "$BUILD/classes" \
-  $(find "$HERE/src" -name '*.java')
+# 3) Java -> dex (os stubs de API nova só servem para compilar; não entram no APK)
+javac --release 8 -nowarn -cp "$TOOLS/android.jar" -d "$BUILD/stubs" $(find "$HERE/stubs" -name '*.java')
+javac --release 8 -nowarn -cp "$TOOLS/android.jar:$BUILD/stubs" -d "$BUILD/classes" $(find "$HERE/src" -name '*.java')
 java -cp "$TOOLS/dx.jar" com.android.dx.command.Main --dex --min-sdk-version=21 \
   --output="$BUILD/classes.dex" "$BUILD/classes"
 (cd "$BUILD" && zip -q -j unsigned.apk classes.dex)

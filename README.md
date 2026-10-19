@@ -1,65 +1,42 @@
-# Arena Royale 3D
+# Echoes
 
-Shooter 3D em terceira pessoa, no estilo Free Fire / Fortnite, que roda direto no navegador (PC e celular).
+Aventura narrativa em terceira pessoa em que o **silêncio do seu ambiente real**, medido pelo microfone do celular, revela uma camada oculta do mundo: a **Resonance**.
 
-Sobreviva a ondas de inimigos cada vez mais fortes. Ao fim de cada onda você escolhe **1 de 3 melhorias** (dano, cadência, tiro múltiplo, balas explosivas, pulo duplo, vampirismo…), então cada partida monta uma build diferente. A cada 5 ondas aparece um **chefão**.
+- Design completo: [`docs/DOCUMENTO_MESTRE.md`](docs/DOCUMENTO_MESTRE.md)
+- O que esta versão cobre e o que foi cortado: [`docs/ESCOPO_FATIA_JOGAVEL.md`](docs/ESCOPO_FATIA_JOGAVEL.md)
 
-## Android (APK)
+Versão atual: **Prólogo + Ato 1** jogáveis, com microfone ou no modo Standard (sem microfone).
 
-O APK pronto está em [`dist/ArenaRoyale.apk`](dist/ArenaRoyale.apk). Copie para o celular, abra e permita "instalar apps desconhecidos" quando o Android pedir. O jogo roda offline, em tela cheia e na horizontal. No celular, o botão voltar pausa o jogo; apertando de novo em até 2 segundos, o app fecha.
+## Instalar no Android
 
-Para gerar o APK de novo (não precisa de Android Studio nem do Android SDK, só Java, curl, unzip e zip):
+O APK pronto está em [`dist/Echoes.apk`](dist/Echoes.apk). Copie para o celular, abra e permita "instalar apps desconhecidos".
 
-```bash
-./android/build.sh          # gera dist/ArenaRoyale.apk
-VERSION_CODE=2 VERSION_NAME=1.1 ./android/build.sh   # para uma nova versão
-```
+- O app só pede o microfone quando você escolhe usá-lo. Dá para trocar para o modo Standard a qualquer momento em Configurações.
+- O áudio é analisado no aparelho e nunca é gravado nem enviado.
+- Fones de ouvido ajudam: os sons do jogo não "vazam" para o microfone.
 
-O app é uma WebView nativa (`android/src/.../MainActivity.java`) que carrega os arquivos do jogo de dentro do APK.
-
-## Como jogar no navegador
-
-O jogo usa módulos ES, então precisa de um servidor local (abrir o `index.html` direto pelo arquivo não funciona):
+Para gerar o APK de novo (sem Android Studio nem SDK; só Java, curl, unzip e zip):
 
 ```bash
-python3 -m http.server 8000
-# abra http://localhost:8000
+./android/build.sh
+VERSION_CODE=2 VERSION_NAME=0.2 ./android/build.sh   # nova versão
 ```
 
-Também funciona publicado no **GitHub Pages** (Settings → Pages → branch). Não há etapa de build nem dependências externas: o Three.js está em `lib/`.
+## Rodar no navegador (desenvolvimento)
 
-### Controles no PC
-| Tecla | Ação |
-|---|---|
-| W A S D | andar (relativo à câmera) |
-| Mouse | girar a câmera |
-| Clique esquerdo | atirar |
-| Clique direito | mirar (zoom sobre o ombro) |
-| Shift | correr |
-| Espaço | pular |
-| C | agachar (use os sacos de areia como cobertura) |
-| R | recarregar |
-| Esc / P | pausar |
+```bash
+python3 -m http.server 8000   # abra http://localhost:8000
+```
 
-### Controles no celular (estilo Free Fire)
-- **Analógico à esquerda**: andar. Empurre até o fim para frente para **correr**.
-- **Arraste no lado direito da tela**: girar a câmera.
-- **Botão de tiro** (direita e esquerda): segure para atirar e arraste o dedo para mirar enquanto atira.
-- Botões de mirar, pular, agachar e recarregar. Tem uma leve assistência de mira.
-
-## Inimigos
-- **Soldado** (vermelho): atira de média distância.
-- **Corredor** (laranja): rápido, ataca corpo a corpo.
-- **Atirador** (azul): mostra um laser vermelho antes de disparar. Saia da linha!
-- **Brutamonte** (roxo): tanque, dispara rajadas.
-- **Chefão** (dourado): rajadas e anéis de balas. Pule para desviar dos anéis.
-
-Headshots dão dano extra; abates em sequência aumentam o multiplicador de combo. O recorde fica salvo no navegador.
+O microfone no navegador exige `localhost` ou HTTPS.
 
 ## Estrutura
-- `index.html`: HUD, menus e controles de toque
-- `style.css`: visual da interface
-- `game.js`: o jogo inteiro (mundo, personagem, câmera em terceira pessoa, IA, ondas, melhorias, áudio sintetizado)
-- `lib/three.module.min.js`: Three.js r160
-- `android/`: app Android (manifest, Activity, ícones, script de build)
-- `dist/ArenaRoyale.apk`: APK pronto para instalar
+- `js/sensor.js`: microfone, calibração, limiares, picos, modo Standard e a máquina de estados da Resonance
+- `js/audio.js`: mixer (camada do mundo x camada da Resonance), áudio direcional, vozes sintetizadas
+- `js/engine.js`: renderização, colisão, personagens
+- `js/player.js`: câmera livre em terceira pessoa, analógico, toque, giroscópio, teclado e mouse
+- `js/systems.js`: ecos, NPCs, interações, objetos de camada, a Estática
+- `js/zones/apartment.js`: Prólogo
+- `js/zones/hub.js`: Ato 1
+- `js/state.js`, `js/ui.js`, `js/main.js`: saves, diário, interface e fluxo do jogo
+- `android/`: app Android (WebView + permissão de microfone) e script de build

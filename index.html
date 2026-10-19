@@ -3,129 +3,162 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0d1b2a">
-<title>Arena Royale 3D</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<meta name="theme-color" content="#0b0f1a">
+<title>Echoes</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="game"></div>
+<div id="resOverlay"></div>
+<div id="glitch"></div>
+<div id="fade"></div>
 
-<!-- ================= HUD ================= -->
+<!-- ============ HUD ============ -->
 <div id="hud" class="hidden">
-  <div id="topLeft">
-    <div class="pill"><span class="lbl">ONDA</span> <span id="waveVal">1</span></div>
-    <div class="pill"><span class="lbl">PONTOS</span> <span id="scoreVal">0</span></div>
-    <div class="pill"><span class="lbl">ABATES</span> <span id="killsVal">0</span></div>
-    <div id="comboBox" class="pill combo hidden">x<span id="comboVal">1</span> COMBO</div>
+  <div id="resMeter">
+    <div id="resLabel">—</div>
+    <div id="resBar"><div id="resFill"></div><div id="resThresh"></div></div>
+    <div id="resBuffer"><div id="resBufFill"></div></div>
   </div>
-  <div id="topCenter">
-    <div id="enemiesLeft">Inimigos: <b id="enemiesVal">0</b></div>
-    <div id="bossBar" class="hidden"><div class="bossName">CHEFÃO</div><div class="bossTrack"><div id="bossFill"></div></div></div>
+  <div id="objective"></div>
+  <div id="echoProgress" class="hidden"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" class="bg"/><circle cx="20" cy="20" r="17" class="fg" id="echoRing"/></svg><span>ouvindo…</span></div>
+  <div id="toasts"></div>
+  <div id="subtitles"></div>
+  <div id="topBtns">
+    <button id="btnDiary" class="roundBtn" title="Diário">📖</button>
+    <button id="btnPause" class="roundBtn" title="Pausa">II</button>
   </div>
-  <canvas id="minimap" width="160" height="160"></canvas>
-  <div id="killFeed"></div>
-
-  <div id="crosshair">
-    <div class="ch t"></div><div class="ch b"></div><div class="ch l"></div><div class="ch r"></div>
-    <div class="dot"></div>
-  </div>
-  <div id="hitmarker"><div></div><div></div><div></div><div></div></div>
-
-  <div id="bottomCenter">
-    <div id="hpRow">
-      <div id="hpTrack"><div id="hpLag"></div><div id="hpFill"></div></div>
-      <div id="hpText">100</div>
-    </div>
-  </div>
-  <div id="ammoBox">
-    <div id="ammoVal"><span id="ammoCur">30</span><span id="ammoMax">/30</span></div>
-    <div id="reloadTrack"><div id="reloadFill"></div></div>
-    <div id="reloadHint" class="hidden">RECARREGAR [R]</div>
-  </div>
-
-  <div id="announce"></div>
-  <div id="streak"></div>
-  <div id="vignette"></div>
-  <div id="lowHp"></div>
-  <div id="dmgDirs"></div>
-  <div id="popups"></div>
-  <button id="btnPause" class="touchOnly">II</button>
+  <div id="noiseCue" class="hidden"></div>
 </div>
 
-<!-- ================= TOUCH CONTROLS ================= -->
+<!-- Controles de toque -->
 <div id="touchUI" class="hidden">
-  <div id="joyBase"><div id="joyKnob"></div><div id="sprintTip">▲ CORRER</div></div>
-  <div class="tbtn" id="btnFireL" data-act="fire"><span>🔫</span></div>
-  <div class="tbtn" id="btnFire" data-act="fire"><span>🔫</span></div>
-  <div class="tbtn" id="btnAim" data-act="aim"><span>🎯</span></div>
-  <div class="tbtn" id="btnJump" data-act="jump"><span>⤒</span></div>
-  <div class="tbtn" id="btnCrouch" data-act="crouch"><span>⤓</span></div>
-  <div class="tbtn" id="btnReload" data-act="reload"><span>⟳</span></div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div class="tbtn" id="btnInteract" data-act="interact"><span id="interactLabel">Interagir</span></div>
+  <div class="tbtn" id="btnSprint" data-act="sprint">Correr</div>
+  <div class="tbtn" id="btnCrouch" data-act="crouch">Agachar</div>
+  <div class="tbtn hidden" id="btnNoise" data-act="noise">👏 Barulho</div>
+</div>
+<div id="interactHint" class="hidden"></div>
+
+<!-- Diálogo -->
+<div id="dialog" class="hidden">
+  <div id="dlgWho"></div>
+  <div id="dlgText"></div>
+  <div id="dlgChoices"></div>
+  <div id="dlgNext">▼</div>
 </div>
 
-<!-- ================= MENUS ================= -->
-<div id="menu" class="screen">
+<!-- ============ TELAS ============ -->
+<div id="title" class="screen">
   <div class="panel">
-    <h1>ARENA<br><span>ROYALE</span></h1>
-    <p class="tag">Sobreviva às ondas. Fique mais forte. Vire lenda.</p>
-    <button id="btnPlay" class="big">JOGAR</button>
-    <div id="bestLine">Recorde: <b id="bestVal">0</b></div>
-    <div class="controls desktopOnly">
-      <div><kbd>W A S D</kbd> mover</div>
-      <div><kbd>Mouse</kbd> girar câmera</div>
-      <div><kbd>Clique</kbd> atirar</div>
-      <div><kbd>Botão dir.</kbd> mirar</div>
-      <div><kbd>Shift</kbd> correr</div>
-      <div><kbd>Espaço</kbd> pular</div>
-      <div><kbd>C</kbd> agachar</div>
-      <div><kbd>R</kbd> recarregar</div>
-    </div>
-    <div class="controls touchOnly">
-      <div>🕹️ Analógico esquerdo: andar (empurre até o fim para correr)</div>
-      <div>👆 Arraste no lado direito: girar câmera</div>
-      <div>🔫 Segure o botão de tiro e arraste para mirar</div>
-    </div>
+    <h1>ECHOES</h1>
+    <p class="tag">Algumas coisas só se ouvem no silêncio.</p>
+    <button id="btnContinue" class="big hidden">Continuar</button>
+    <button id="btnNew" class="big">Novo jogo</button>
+    <button id="btnSettingsT" class="small">Configurações</button>
+    <p class="note">Recomendado: fones de ouvido e um lugar onde você possa ficar quieto.</p>
+  </div>
+</div>
+
+<div id="micIntro" class="screen hidden">
+  <div class="panel">
+    <h2>O microfone</h2>
+    <p>Em Echoes, o silêncio do <b>seu</b> ambiente revela uma camada escondida do mundo, a <b>Resonance</b>.</p>
+    <ul class="facts">
+      <li>🔒 O áudio é processado <b>só no seu aparelho</b>. Nada é gravado nem enviado.</li>
+      <li>📊 O jogo mede apenas volume, picos e padrões simples.</li>
+      <li>↩️ Você pode desligar quando quiser em Configurações.</li>
+    </ul>
+    <button id="btnUseMic" class="big">Usar microfone (recomendado)</button>
+    <button id="btnUseStandard" class="small">Jogar sem microfone (modo Standard)</button>
+  </div>
+</div>
+
+<div id="calib" class="screen hidden">
+  <div class="panel">
+    <h2>Calibração</h2>
+    <p id="calibText">Deixe o ambiente como ele normalmente está. Não precisa fazer silêncio agora: o jogo está aprendendo como é o <b>seu</b> “normal”.</p>
+    <div id="calibMeter"><div id="calibFill"></div></div>
+    <div id="calibCount">16</div>
+    <button id="btnCalibGo" class="big hidden">Começar</button>
+  </div>
+</div>
+
+<div id="standardIntro" class="screen hidden">
+  <div class="panel">
+    <h2>Modo Standard</h2>
+    <p>Sem microfone, a Resonance responde à <b>calma</b> do personagem.</p>
+    <ul class="facts">
+      <li>🧘 Fique parado (agachado é mais rápido) para acalmar a mente e entrar na Resonance.</li>
+      <li>🏃 Andar rápido e correr fazem “barulho”.</li>
+      <li>👏 O botão <b>Barulho</b> substitui bater palma ou falar alto.</li>
+    </ul>
+    <button id="btnStandardGo" class="big">Entendi</button>
   </div>
 </div>
 
 <div id="pause" class="screen hidden">
   <div class="panel">
-    <h2>PAUSADO</h2>
-    <button id="btnResume" class="big">CONTINUAR</button>
-    <button id="btnQuit" class="small">Sair para o menu</button>
+    <h2>Pausa</h2>
+    <button id="btnResume" class="big">Continuar</button>
+    <button id="btnSave" class="small">Salvar</button>
+    <button id="btnRecalib" class="small">Recalibrar microfone</button>
+    <button id="btnSettingsP" class="small">Configurações</button>
+    <button id="btnToTitle" class="small">Menu principal</button>
+    <p id="saveInfo" class="note"></p>
   </div>
 </div>
 
-<div id="upgrade" class="screen hidden">
-  <div class="panel wide">
-    <h2 id="upTitle">ONDA CONCLUÍDA!</h2>
-    <p class="tag">Escolha uma melhoria</p>
-    <div id="cards"></div>
+<div id="settings" class="screen hidden">
+  <div class="panel left">
+    <h2>Configurações</h2>
+    <label class="row">Modo de Resonance
+      <select id="setMode"><option value="mic">Microfone</option><option value="standard">Standard (sem microfone)</option></select>
+    </label>
+    <label class="row">Sensibilidade do microfone <input type="range" id="setSens" min="0.5" max="1.8" step="0.05"></label>
+    <label class="row">Sensibilidade da câmera <input type="range" id="setCam" min="0.4" max="2" step="0.05"></label>
+    <label class="row"><span>Inverter eixo vertical</span><input type="checkbox" id="setInvert"></label>
+    <label class="row"><span>Giroscópio (ajuste fino do olhar)</span><input type="checkbox" id="setGyro"></label>
+    <label class="row"><span>Legendas</span><input type="checkbox" id="setSubs"></label>
+    <label class="row">Tamanho da legenda <input type="range" id="setSubSize" min="0.8" max="1.6" step="0.1"></label>
+    <label class="row"><span>Controles invertidos (canhoto)</span><input type="checkbox" id="setSwap"></label>
+    <p class="note">PC: WASD andar · mouse olhar · Shift correr · C agachar · E interagir · F barulho (Standard) · Tab diário · Esc pausa</p>
+    <button id="btnSettingsClose" class="big">Voltar</button>
   </div>
 </div>
 
-<div id="over" class="screen hidden">
-  <div class="panel">
-    <h2 class="red">VOCÊ FOI ELIMINADO</h2>
-    <div id="newRecord" class="hidden">🏆 NOVO RECORDE! 🏆</div>
-    <div class="stats">
-      <div><span>Pontos</span><b id="ovScore">0</b></div>
-      <div><span>Onda</span><b id="ovWave">0</b></div>
-      <div><span>Abates</span><b id="ovKills">0</b></div>
-      <div><span>Headshots</span><b id="ovHeads">0</b></div>
-      <div><span>Recorde</span><b id="ovBest">0</b></div>
+<div id="diary" class="screen hidden">
+  <div class="panel wide left">
+    <h2>Diário</h2>
+    <div id="diaryTabs">
+      <button data-tab="echoes" class="on">Ecos</button>
+      <button data-tab="people">Pessoas</button>
+      <button data-tab="notes">Notas</button>
+      <button data-tab="items">Itens</button>
     </div>
-    <button id="btnAgain" class="big">JOGAR DE NOVO</button>
-    <button id="btnMenu" class="small">Menu</button>
+    <div id="diaryBody"></div>
+    <button id="btnDiaryClose" class="big">Fechar</button>
   </div>
 </div>
 
-<div id="rotateHint">📱↻ Gire o celular para jogar na horizontal</div>
+<div id="puzzle" class="hidden">
+  <div id="pzTitle">Caixa de música</div>
+  <div id="pzSlots"></div>
+  <div id="pzText"></div>
+  <button id="pzCancel" class="small">Sair</button>
+</div>
 
-<script type="module" src="game.js"></script>
+<div id="actEnd" class="screen hidden">
+  <div class="panel">
+    <h2 id="aeTitle">Fim do Ato 1</h2>
+    <p id="aeSub" class="tag"></p>
+    <div id="aeStats" class="stats"></div>
+    <p id="aeText"></p>
+    <button id="aeBtn" class="big">Menu principal</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
