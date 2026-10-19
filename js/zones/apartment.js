@@ -35,14 +35,14 @@ export function build(ctx) {
   for (const sx of [-3.55, -2.45]) box(g, sx, 0, 3.5, 0.1, 2.2, 0.06, whiteM, { solid: false });
   box(g, -3, 2.15, 3.5, 1.2, 0.1, 0.06, whiteM, { solid: false });
   // leste com a passagem de serviço escondida (z de -2.4 a -1.2)
-  box(g, 5.1, 0, 1.0, 0.2, H, 5.2, wallM, { collide: true });
+  box(g, 5.1, 0, 1.2, 0.2, H, 4.8, wallM, { collide: true });
   box(g, 5.1, 0, -3.0, 0.2, H, 1.2, wallM, { collide: true });
   box(g, 5.1, 2.1, -1.8, 0.2, 0.6, 1.2, wallM);
   const panel = box(g, 5.08, 0, -1.8, 0.16, 2.1, 1.2, wallM, { collide: true, dynamic: true });
   // divisória do quarto
   box(g, -1.2, 0, -2.1, 0.15, H, 3.0, wallM, { collide: true });
   // rodapés
-  for (const [x, z, w, d] of [[0, -3.48, 10.2, 0.04], [-4.98, 0, 0.04, 7.2], [1.35, 3.48, 7.7, 0.04], [4.98, 1.0, 0.04, 5.2]]) box(g, x, 0, z, w, 0.1, d, whiteM, { solid: false, cast: false });
+  for (const [x, z, w, d] of [[0, -3.48, 10.2, 0.04], [-4.98, 0, 0.04, 7.2], [1.35, 3.48, 7.7, 0.04], [4.98, 1.2, 0.04, 4.8]]) box(g, x, 0, z, w, 0.1, d, whiteM, { solid: false, cast: false });
   // corredor de serviço
   const darkM = solid(0x23211f, 0.9);
   box(g, 6.2, -0.1, -1.8, 2.2, 0.1, 1.6, darkM, { solid: false, cast: false });
@@ -67,7 +67,8 @@ export function build(ctx) {
   g.add(win);
   for (const [x, y, w, h] of [[0.8, 0.98, 1.8, 0.07], [0.8, 2.1, 1.8, 0.07], [-0.1, 1.0, 0.07, 1.17], [1.7, 1.0, 0.07, 1.17], [0.8, 1.0, 0.04, 1.1]]) box(g, x, y, -3.46, w, h, 0.08, whiteM, { solid: false });
   box(g, 0.8, 0.94, -3.38, 1.9, 0.05, 0.22, whiteM, { solid: false });
-  for (const sx of [-0.35, 1.95]) box(g, sx, 0.2, -3.4, 0.45, 2.3, 0.08, fabric(0x6a4a5a), { solid: false, round: 0.03 });
+  box(g, -0.23, 0.2, -3.4, 0.2, 2.3, 0.08, fabric(0x6a4a5a), { solid: false, round: 0.03 });
+  box(g, 1.95, 0.2, -3.4, 0.45, 2.3, 0.08, fabric(0x6a4a5a), { solid: false, round: 0.03 });
   const winLight = new THREE.PointLight(0x7f9cff, 2.5, 6, 2);
   winLight.position.set(0.8, 1.6, -2.6);
   g.add(winLight);
@@ -96,8 +97,8 @@ export function build(ctx) {
   box(g, 3.2, 0.9, -3.15, 0.5, 0.04, 0.38, metalM, { solid: false });
   mesh(g, new THREE.CylinderGeometry(0.015, 0.015, 0.3, 8), metalM, 3.2, 1.08, -3.35);
   for (const [x, z] of [[4.1, -3.0], [4.45, -3.0], [4.1, -3.3], [4.45, -3.3]]) mesh(g, new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16), solid(0x111111, 0.4), x, 0.94, z);
-  box(g, 4.65, 0, -2.2, 0.75, 1.9, 0.7, solid(0xe8e8e4, 0.3, 0.1), { collide: true, round: 0.06 });
-  box(g, 4.26, 0.9, -2.0, 0.03, 0.6, 0.04, metalM, { solid: false });
+  box(g, -0.72, 0, -3.1, 0.75, 1.9, 0.7, solid(0xe8e8e4, 0.3, 0.1), { collide: true, round: 0.06 });
+  box(g, -0.5, 0.9, -2.73, 0.04, 0.6, 0.03, metalM, { solid: false });
   // estante com livros
   box(g, 4.8, 0, 0.6, 0.45, 2.1, 1.8, woodM, { collide: true });
   const bookCols = [0x8b3a3a, 0x3a5a8b, 0x6b8b3a, 0x8b7a3a, 0x5a3a6b, 0x2a2a2a, 0xc8b89a];
@@ -298,7 +299,7 @@ export function build(ctx) {
 
   // ponto de partida
   if (S.flags.pro_door) { p.step = 5; openPanel(); p.slide = 0; panel.position.z = -0.65; }
-  return { spawn: { x: -2.6, z: 1.6, yaw: Math.PI * 0.25 }, camMax: 2.3 };
+  return { spawn: { x: -2.6, z: 1.6, yaw: Math.PI * 0.25 }, camMax: 2.3, ceiling: 2.5 };
 }
 
 export function onEnter(ctx) {

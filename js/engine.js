@@ -23,7 +23,7 @@ document.getElementById('game').appendChild(renderer.domElement);
 export const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x10141f, 10, 70);
 scene.background = new THREE.Color(0x07090f);
-export const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
+export const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 400);
 
 export const hemi = new THREE.HemisphereLight(0x8090b0, 0x202430, 0.5);
 scene.add(hemi);

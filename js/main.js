@@ -65,6 +65,7 @@ function loadZone(name, useCheckpoint) {
   cam.pitch = -0.12;
   player.facing = Math.atan2(-Math.sin(cam.yaw), -Math.cos(cam.yaw));
   cam.maxDist = zoneInfo.camMax;
+  cam.ceiling = zoneInfo.ceiling ?? Infinity;
   cam.dist = zoneInfo.camMax;
   setAmbient(mod.ambient);
   applyPalette(mod.palette, 0);
@@ -393,7 +394,7 @@ function frame(dt) {
   $('resFill').classList.toggle('over', mv.over);
   $('resThresh').style.left = (mv.th * 100).toFixed(1) + '%';
   $('resBufFill').style.width = (Sensor.state === 'silence' ? 100 : Math.min(1, Sensor.quietT / RES_ENTER_DELAY) * 100).toFixed(0) + '%';
-  const label = Sensor.state === 'silence' ? 'Resonance' : Sensor.state === 'noise' ? 'Ruído' : Sensor.quietT > 0.2 ? 'Silenciando…' : (Sensor.mode === 'mic' ? 'Microfone' : 'Standard');
+  const label = Sensor.state === 'silence' ? (Sensor.noisyT > 0.15 ? 'Resonance enfraquecendo…' : 'Resonance') : Sensor.state === 'noise' ? 'Ruído' : Sensor.quietT > 0.2 ? 'Silenciando…' : (Sensor.mode === 'mic' ? 'Microfone' : 'Standard');
   if (label !== lastState) {
     lastState = label;
     $('resLabel').textContent = label;
@@ -424,4 +425,4 @@ function frame(dt) {
   fade(0, 1200);
 })();
 
-window.__echoes = { S: () => S, Sensor, player, cam, Z, game, input, sim: (sec) => { for (let t = 0; t < sec; t += 1 / 30) { scene.updateMatrixWorld(); frame(1 / 30); } } };
+window.__echoes = { THREE, S: () => S, Sensor, player, cam, Z, game, input, world, camera, updateCamera, loadZone: (n) => loadZone(n, false), zoneInfo: () => zoneInfo, sim: (sec) => { for (let t = 0; t < sec; t += 1 / 30) { scene.updateMatrixWorld(); frame(1 / 30); } } };

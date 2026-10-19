@@ -203,7 +203,7 @@ export class NPC {
       world.group.add(aura);
       layered(aura, 'res');
     }
-    bodies.push({ pos: this.pos, r: 0.35 });
+    bodies.push({ pos: this.pos, r: 0.35, root: this.ch.root });
     this.it = interactable({
       pos: this.pos, radius: this.radius, label: def.label || `Falar com ${this.name}`, mesh: this.ch.root,
       onUse: async () => { this.talking = true; await this.talk(); this.talking = false; },
@@ -260,7 +260,7 @@ export class Walker {
     this.facing = 0;
     this.ch.root.position.copy(this.pos);
     world.group.add(this.ch.root);
-    this.body = { pos: this.pos, r: 0.32 };
+    this.body = { pos: this.pos, r: 0.32, root: this.ch.root };
     bodies.push(this.body);
     this.lineI = 0;
     this.talking = false;

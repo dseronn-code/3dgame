@@ -32,7 +32,7 @@ export function initPlayerModel() {
 // corpos de NPCs/figurantes (o jogador não atravessa)
 export const bodies = [];
 
-export const cam = { yaw: 0, pitch: -0.15, maxDist: 3.4, dist: 3.4, lookTotal: 0 };
+export const cam = { yaw: 0, pitch: -0.15, maxDist: 3.4, dist: 3.4, lookTotal: 0, ceiling: Infinity };
 
 export const input = {
   f: 0, b: 0, l: 0, r: 0, joyX: 0, joyY: 0,
@@ -234,25 +234,59 @@ export function updatePlayer(dt) {
   m.update(dt);
 }
 
+// A câmera é tratada como uma pequena esfera: nunca pode ficar dentro de paredes nem enxergar através delas
+const CAM_R = 0.22;
+function castDist(origin, target) {
+  const v = tmpD.subVectors(target, origin);
+  const len = v.length();
+  if (len < 1e-4) return len;
+  camRay.set(origin, v.divideScalar(len));
+  camRay.far = len;
+  const h = camRay.intersectObjects(world.solids, false);
+  return h.length ? h[0].distance : Infinity;
+}
+function insideCollider(p, m) {
+  for (const c of world.colliders) {
+    if (c.on && p.y < c.top + m && p.x > c.minX - m && p.x < c.maxX + m && p.z > c.minZ - m && p.z < c.maxZ + m) return true;
+  }
+  return false;
+}
+const tmpD = new THREE.Vector3(), tmpE = new THREE.Vector3(), camUp = new THREE.Vector3();
 export function updateCamera(dt, shake = 0) {
   const h = lerp(1.6, 1.15, player.crouchT);
   const pivot = tmpA.set(player.pos.x, player.pos.y + h, player.pos.z);
   const cp = Math.cos(cam.pitch);
   const dir = tmpB.set(-Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), -Math.cos(cam.yaw) * cp);
   const right = tmpC.set(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw));
-  const shoulder = pivot.clone().addScaledVector(right, 0.45);
+  camUp.crossVectors(right, dir).normalize();
+  // 1) o ombro (deslocamento lateral) não pode atravessar a parede ao lado
+  let sh = 0.45;
+  const ds = castDist(pivot, tmpE.copy(pivot).addScaledVector(right, sh + CAM_R));
+  if (ds !== Infinity) sh = Math.max(0, ds - CAM_R);
+  // quinas: o raio pode passar raspando a aresta; confere também pelos colisores
+  for (let k = 0; k < 6 && sh > 0.01 && insideCollider(tmpE.copy(pivot).addScaledVector(right, sh), CAM_R * 0.6); k++) sh *= 0.5;
+  const shoulder = pivot.clone().addScaledVector(right, sh);
+  // 2) do ombro para trás: raio central + 4 raios nas bordas da "esfera" da câmera
   const back = dir.clone().negate();
-  camRay.set(shoulder, back);
-  camRay.far = cam.maxDist + 0.3;
-  const hits = camRay.intersectObjects(world.solids, false);
+  const desired = shoulder.clone().addScaledVector(back, cam.maxDist);
   let d = cam.maxDist;
-  if (hits.length) d = Math.max(0.35, hits[0].distance - 0.25);
+  for (const [ox, oy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const tgt = tmpE.copy(desired).addScaledVector(right, ox * CAM_R).addScaledVector(camUp, oy * CAM_R);
+    const hit = castDist(shoulder, tgt);
+    if (hit !== Infinity) d = Math.min(d, hit * (cam.maxDist / shoulder.distanceTo(tgt)) - CAM_R);
+  }
+  d = Math.max(0.12, d);
   cam.dist = d < cam.dist ? d : lerp(cam.dist, d, Math.min(1, dt * 4));
-  const pos = shoulder.addScaledVector(back, cam.dist);
+  const pos = shoulder.clone().addScaledVector(back, cam.dist);
   if (pos.y < 0.2) pos.y = 0.2;
+  if (pos.y > cam.ceiling) pos.y = cam.ceiling;
+  // 3) segurança extra: se ainda estiver dentro de algum objeto sólido, aproxima até sair
+  for (let k = 0; k < 16 && insideCollider(pos, 0.1); k++) pos.lerp(pivot, 0.3);
   if (shake > 0) { pos.x += (Math.random() - 0.5) * shake; pos.y += (Math.random() - 0.5) * shake; }
   camera.position.copy(pos);
   camera.lookAt(pos.clone().add(dir));
   camera.updateMatrixWorld();
-  player.model.root.visible = cam.dist > 0.6;
+  player.model.root.visible = pos.distanceTo(pivot) > 0.55;
+  // personagens colados na câmera somem (em vez de mostrar o "por dentro" deles)
+  for (const b of bodies) if (b.root) b.root.visible = Math.hypot(pos.x - b.pos.x, pos.z - b.pos.z) > 0.55 || pos.y > 2.2;
 }

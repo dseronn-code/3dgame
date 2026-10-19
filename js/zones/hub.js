@@ -294,7 +294,7 @@ export function build(ctx) {
 
   // ---------- Bruno (banca) — comenta o quanto você usa a Resonance; não existe na camada oculta
   new NPC({
-    id: 'bruno', name: 'Bruno', pos: new THREE.Vector3(11.2, 0, -10.9), facing: -Math.PI * 0.75, frozenInRes: true,
+    id: 'bruno', name: 'Bruno', pos: new THREE.Vector3(13.0, 0, -11.05), facing: -0.88, frozenInRes: true,
     look: { base: 'bruno' },
     talk: async () => {
       if (Sensor.R > 0.6) {
@@ -389,7 +389,7 @@ export function build(ctx) {
     lines: ['Foi mal, tô atrasado.', 'Essa praça fica sinistra de noite, né?', 'Ouviu esse chiado? Deve ser o transformador.'], pitch: 150 });
   new Walker({ id: 'extra2', name: 'Moça do café', path: [V(-39, -1.2), V(-30, -1.6), V(-22, -2.4), V(-30, -1.6)], pause: [2, 6],
     lines: ['O café do Lume é o melhor do bairro.', 'Eu via uma moça gravando os sons daqui. Faz tempo que não vejo.'], pitch: 230 });
-  new Walker({ id: 'extra3', name: 'Moça de óculos', path: [V(2.4, 38), V(2.4, 24), V(-2.4, 24), V(-2.4, 38)], speed: 1.45, pause: [1, 3],
+  new Walker({ id: 'extra3', name: 'Moça de óculos', path: [V(1.6, 38), V(1.6, 24), V(-1.6, 24), V(-1.6, 38)], speed: 1.45, pause: [1, 3],
     lines: ['Tô voltando da academia, sem tempo, desculpa!', 'Cuidado com a calçada molhada.'], pitch: 220 });
   new Walker({ id: 'extra4', name: 'Garota esperando', path: [V(7.5, -17.5)], idleVariant: true,
     lines: ['Tô esperando uma amiga. Ela tá meia hora atrasada.', 'Você também ouve um zumbido aqui perto da banca?'], pitch: 240 });
