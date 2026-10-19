@@ -36,7 +36,7 @@ mkdir -p "$BUILD/assets/www" "$BUILD/classes" "$BUILD/stubs" "$BUILD/res" "$(dir
 
 # 1) Jogo web -> assets/www
 cp "$ROOT/index.html" "$BUILD/assets/www/"
-cp -r "$ROOT/css" "$ROOT/js" "$ROOT/lib" "$BUILD/assets/www/"
+cp -r "$ROOT/css" "$ROOT/js" "$ROOT/lib" "$ROOT/assets" "$BUILD/assets/www/"
 
 # 2) Recursos + manifest
 "$AAPT2" compile --dir "$HERE/res" -o "$BUILD/res/res.zip"

@@ -47,6 +47,12 @@ Esta versão é o Prólogo + Ato 1 completos, com todos os sistemas centrais fun
 - Portão acústico que só abre com pico de ruído real.
 - Escolha final do ato baseada na quantidade de informação coletada pela Resonance.
 
+**Gráficos (seção 7: escaláveis, para aparelhos medianos)**
+- Personagens 3D com esqueleto e animações (parado, andar, correr, gestos), agachamento procedural, boca que mexe na fala.
+- Materiais PBR com texturas (tijolo, madeira, piso), mais asfalto molhado, concreto, pedras e reboco gerados por código.
+- Iluminação HDR do céu noturno, reflexos em poças, brilho (bloom) nas luzes, sombras suaves.
+- Qualidade gráfica Baixa/Média/Alta nas configurações. A geometria estática é juntada por material para reduzir chamadas de desenho.
+
 **Sistemas de apoio (seção 6)**
 - Diário automático (ecos, pessoas e relações, notas) e inventário contextual.
 - Save automático por zona e por evento + 3 saves manuais.
@@ -54,7 +60,7 @@ Esta versão é o Prólogo + Ato 1 completos, com todos os sistemas centrais fun
 
 ## Ainda não feito (próximas etapas, na ordem do documento)
 - Ato 2 (Subsolo, com o item que força a Resonance), Atos 3–5 e Epílogo.
-- Personagens com animação de alta qualidade e arte final (hoje: low-poly procedural).
+- Personagens exclusivos para cada papel. Hoje são modelos 3D animados (Mixamo / Ready Player Me) com variações de roupa e cor, e alguns NPCs compartilham o mesmo modelo base. Veja `docs/CREDITOS.md`.
 - Vozes gravadas (hoje: murmúrio sintetizado + legendas).
 - Saves em nuvem e analytics anônimos.
 - Versão iOS.

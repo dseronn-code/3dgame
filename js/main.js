@@ -1,7 +1,9 @@
 import { THREE, renderer, scene, camera, moon, world, clearWorld, applyPalette, isTouch, lerp } from './engine.js';
+import { loadAssets } from './assets.js';
+import { setQuality, setupEnvironment, setBackground, mergeStatic, render } from './gfx.js';
 import { Audio, ensureAudio, setAmbient, mixResonance, setListener, sfx } from './audio.js';
 import { Sensor, enableMic, disableMic, calibrate, applyThresholds, updateSensor, virtualClap, onPeak, meterValues, RES_ENTER_DELAY } from './sensor.js';
-import { player, cam, input, settings, hooks, updatePlayer, updateCamera, requestLock, releaseLock, resetJoy, enableGyro } from './player.js';
+import { player, cam, input, settings, hooks, updatePlayer, updateCamera, requestLock, releaseLock, resetJoy, enableGyro, initPlayerModel } from './player.js';
 import { Z, resetZone, updateSystems, findInteractable, tapInteractable } from './systems.js';
 import { S, setState, freshState, autoSave, manualSave, latestSave, loadSettings, saveSettings, temperament, echoCount, flag, MANUAL_SAVES } from './state.js';
 import { $, UI, fade, subtitle, setObjective, toast, renderDiary } from './ui.js';
@@ -55,6 +57,8 @@ function loadZone(name, useCheckpoint) {
   S.zone = name;
   S.act = name === 'apartment' ? 'prologue' : 'act1';
   zoneInfo = mod.build(ctx);
+  mergeStatic(world.group);
+  setBackground(mod.background);
   const cp = useCheckpoint && S.checkpoint && S.checkpoint.zone === name ? S.checkpoint : zoneInfo.spawn;
   player.pos.set(cp.x, 0, cp.z);
   cam.yaw = cp.yaw;
@@ -259,6 +263,7 @@ function openSettings(from) {
   $('setSubs').checked = settings.subtitles;
   $('setSubSize').value = settings.subSize;
   $('setSwap').checked = settings.swap;
+  $('setQuality').value = settings.quality || (isTouch ? 'medium' : 'high');
   show('settings');
 }
 function applySettings() {
@@ -279,6 +284,7 @@ for (const [id, key, kind] of [['setSens', 'sensitivity', 'num'], ['setCam', 'ca
   });
 }
 $('setMode').addEventListener('change', () => { settings.micMode = $('setMode').value; saveSettings(settings); });
+$('setQuality').addEventListener('change', () => { settings.quality = $('setQuality').value; saveSettings(settings); setQuality(settings.quality); });
 $('btnSettingsClose').addEventListener('click', async () => {
   // troca de modo: desligar o microfone é imediato; ligar exige permissão + calibração
   if (settings.micMode === 'standard' && Sensor.mode === 'mic') { disableMic(); toast('Microfone desligado. Modo Standard ativo.'); }
@@ -302,8 +308,10 @@ function buildTitleBackdrop() {
   setState(freshState());
   Z.palette = hub.palette;
   zoneInfo = hub.build({ ...ctx, thought() {}, save() {} });
+  mergeStatic(world.group);
+  setBackground('sky');
   setState(save);
-  player.model.root.visible = false;
+  if (player.model) player.model.root.visible = false;
   setObjective('');
 }
 
@@ -321,8 +329,8 @@ function tick() {
   if (game.state === 'playing' && !game.transitioning) frame(dt);
   else if (game.state === 'title') {
     const a = elapsed * 0.05;
-    camera.position.set(Math.cos(a) * 24, 9, Math.sin(a) * 24);
-    camera.lookAt(0, 2, 0);
+    camera.position.set(Math.cos(a) * 17, 4.5, Math.sin(a) * 17);
+    camera.lookAt(0, 2.2, 0);
     const R = (Math.sin(elapsed * 0.4) * 0.5 + 0.5) ** 3;
     applyPalette(hub.palette, R);
     mixResonance(R * 0.6);
@@ -331,7 +339,7 @@ function tick() {
     moon.position.set(30, 50, 20);
     moon.target.position.set(0, 0, 0);
   }
-  renderer.render(scene, camera);
+  render();
 }
 
 function frame(dt) {
@@ -398,8 +406,22 @@ function frame(dt) {
   wasRes = R > 0.5;
 }
 
-toTitle();
-fade(0, 1200);
-tick();
+// ---------------------------------------------------------------------
+//  Boot: carrega modelos e texturas, depois mostra o título
+(async function boot() {
+  show('loading');
+  tick();
+  try {
+    await loadAssets((k) => { $('loadFill').style.width = Math.round(k * 100) + '%'; });
+  } catch (e) {
+    $('loadText').textContent = 'Erro ao carregar: ' + e.message;
+    throw e;
+  }
+  setupEnvironment();
+  setQuality(settings.quality || (isTouch ? 'medium' : 'high'));
+  initPlayerModel();
+  toTitle();
+  fade(0, 1200);
+})();
 
 window.__echoes = { S: () => S, Sensor, player, cam, Z, game, input, sim: (sec) => { for (let t = 0; t < sec; t += 1 / 30) { scene.updateMatrixWorld(); frame(1 / 30); } } };

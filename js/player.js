@@ -1,5 +1,6 @@
 // Jogador + câmera third-person livre + entrada (toque, teclado/mouse, giroscópio)
-import { THREE, scene, camera, world, renderer, isTouch, clamp, lerp, angleDiff, resolveCollisions, buildHumanoid, animateHumanoid } from './engine.js';
+import { THREE, scene, camera, world, renderer, isTouch, clamp, lerp, angleDiff, resolveCollisions } from './engine.js';
+import { makeCharacter } from './assets.js';
 import { sfx } from './audio.js';
 
 export const settings = {
@@ -17,11 +18,20 @@ export const player = {
   walkAmt: 0,
   stepT: 0,
   frozen: false,
-  model: buildHumanoid({ skin: 0xc68f6b, top: 0x3d5a66, legs: 0x262b36, hair: 0x1f1712, accent: 0xb5653a, coat: true }),
+  model: null,
   movedDist: 0,
   sprintTime: 0,
 };
-scene.add(player.model.root);
+
+// Ari: avatar com casaco escuro (criado depois que os modelos carregam)
+export function initPlayerModel() {
+  player.model = makeCharacter('avatar', {
+    height: 1.76,
+    tint: { Wolf3D_Outfit_Top: 0x4a5866, Wolf3D_Outfit_Bottom: 0x2e3440, Wolf3D_Outfit_Footwear: 0x3a3a3a, Wolf3D_Headwear: 0x2a2a30 },
+    hide: ['Wolf3D_Beard'],
+  });
+  scene.add(player.model.root);
+}
 
 export const cam = { yaw: 0, pitch: -0.15, maxDist: 3.4, dist: 3.4, lookTotal: 0 };
 
@@ -43,8 +53,12 @@ export function requestLock() {
 export function releaseLock() { if (document.pointerLockElement) document.exitPointerLock(); }
 document.addEventListener('pointerlockchange', () => { pointerLocked = document.pointerLockElement === canvas; });
 canvas.addEventListener('mousedown', () => { if (!isTouch && hooks.isPlaying() && !pointerLocked) requestLock(); });
+let lockedAt = 0;
+document.addEventListener('pointerlockchange', () => { lockedAt = performance.now(); });
 window.addEventListener('mousemove', (e) => {
   if (!pointerLocked || !hooks.isPlaying()) return;
+  // o navegador às vezes manda um salto enorme logo ao travar o mouse
+  if (performance.now() - lockedAt < 120 || Math.abs(e.movementX) > 250 || Math.abs(e.movementY) > 250) return;
   look(e.movementX * 0.0022, e.movementY * 0.0022);
 });
 const keyMap = { KeyW: 'f', ArrowUp: 'f', KeyS: 'b', ArrowDown: 'b', KeyA: 'l', ArrowLeft: 'l', KeyD: 'r', ArrowRight: 'r' };
@@ -198,7 +212,7 @@ export function updatePlayer(dt) {
   const wantSprint = (input.sprintKey || input.sprintToggle) && mlen > 0.3;
   if (wantSprint && player.crouch) player.crouch = false;
   player.sprinting = wantSprint && !player.frozen;
-  const speed = mlen * (player.sprinting ? 5.6 : player.crouch ? 1.5 : 2.9);
+  const speed = mlen * (player.sprinting ? 5.2 : player.crouch ? 1.3 : 2.4);
   player.speed = speed;
   const before = tmpA.copy(player.pos);
   player.pos.x += wx * speed * dt;
@@ -216,11 +230,12 @@ export function updatePlayer(dt) {
   const m = player.model;
   m.root.position.copy(player.pos);
   m.root.rotation.y = player.facing;
-  animateHumanoid(m, { walk: player.walkAmt, phase: player.phase, crouch: player.crouchT, idleT: performance.now() / 1000, lean: player.sprinting ? 0.18 : 0 });
+  m.locomote(speed, player.crouchT, dt);
+  m.update(dt);
 }
 
 export function updateCamera(dt, shake = 0) {
-  const h = lerp(1.55, 1.05, player.crouchT);
+  const h = lerp(1.6, 1.15, player.crouchT);
   const pivot = tmpA.set(player.pos.x, player.pos.y + h, player.pos.z);
   const cp = Math.cos(cam.pitch);
   const dir = tmpB.set(-Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), -Math.cos(cam.yaw) * cp);

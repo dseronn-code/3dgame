@@ -1,5 +1,7 @@
 // ATO 1 — A Cidade que Lembra. Hub urbano semi-aberto: praça, café, banca, oficina de rádio, Estação Aurora.
-import { THREE, world, box, mat, ghostMat, isTouch, rand } from '../engine.js';
+import { THREE, world, box, mesh, ghostMat, isTouch, rand, addCollider } from '../engine.js';
+import { M, plaster, solid, glow, shopWindow, litWindow } from '../gfx.js';
+import { building, lampPost, bench, tree, car, trashBin, hydrant, planter, stringLights, fountain } from '../props.js';
 import { Z, Echo, NPC, Estatica, interactable, layered } from '../systems.js';
 import { player } from '../player.js';
 import { Sensor, onPeak, isAbsoluteSilence } from '../sensor.js';
@@ -8,188 +10,194 @@ import { S, flag, setFlag, addNote, addItem, hasItem, meet, rel, echoCount, temp
 import { subtitle, setObjective, say, choose, $, toast } from '../ui.js';
 
 export const palette = {
-  normal: { bg: 0x121827, fogNear: 14, fogFar: 70, sky: 0x6a7aa0, ground: 0x262a33, hemi: 0.8, moon: 0x9aaad8, moonI: 0.7 },
-  res: { bg: 0x08202e, fogNear: 8, fogFar: 55, sky: 0x4fb8d8, ground: 0x0a2a3a, hemi: 0.95, moon: 0x7fe9ff, moonI: 1.0 },
+  normal: { fog: 0x161c2c, fogNear: 18, fogFar: 85, sky: 0x6a7aa0, ground: 0x262a33, hemi: 0.45, moon: 0x9aaad8, moonI: 0.9, bgI: 0.6, exposure: 1.0 },
+  res: { fog: 0x08202e, fogNear: 8, fogFar: 60, sky: 0x4fb8d8, ground: 0x0a2a3a, hemi: 0.75, moon: 0x7fe9ff, moonI: 1.3, bgI: 0.35, exposure: 1.15 },
 };
 export const ambient = 'city';
+export const background = 'sky';
 
 const LIA = { who: 'Lia', pitch: 225 };
+
+// letreiros com texto (textura de canvas)
+function sign(g, text, x, y, z, rotY, w, h, { bg = '#14161c', fg = '#ffd59a', font = 'bold 64px Georgia', glowI = 1.4 } = {}) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = Math.round(512 * h / w);
+  const x2 = c.getContext('2d');
+  x2.fillStyle = bg; x2.fillRect(0, 0, c.width, c.height);
+  x2.fillStyle = fg; x2.font = font; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+  const lines = text.split('\n');
+  lines.forEach((ln, i) => x2.fillText(ln, c.width / 2, c.height * (i + 0.5) / lines.length));
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: glowI, roughness: 0.6 }));
+  m.position.set(x, y, z);
+  m.rotation.y = rotY;
+  g.add(m);
+  return m;
+}
 
 export function build(ctx) {
   const g = world.group;
   world.bounds = 46;
 
-  // ---------- chão
-  const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(110, 110), mat(0x2a2d33));
-  asphalt.rotation.x = -Math.PI / 2;
-  asphalt.receiveShadow = true;
-  g.add(asphalt);
-  const plaza = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), mat(0x5d5a55));
-  plaza.rotation.x = -Math.PI / 2;
-  plaza.position.y = 0.02;
-  plaza.receiveShadow = true;
-  g.add(plaza);
-  // calçadas ao longo dos prédios
-  const sidewalk = mat(0x4a4845);
-  for (const [x, z, w, d] of [[0, -19, 40, 2], [0, 19, 40, 2], [-19, 0, 2, 40], [19, 0, 2, 40]]) box(g, x, 0, z, w, 0.08, d, sidewalk, { solid: false, cast: false });
-  // faixas
+  // ---------- chão: asfalto molhado, praça de pedras, calçadas
+  box(g, 0, -0.1, 0, 110, 0.1, 110, M('asphalt'), { solid: false, cast: false });
+  box(g, 0, 0, 0, 24, 0.05, 24, M('pavers'), { solid: false, cast: false });
+  box(g, 0, 0, 0, 24.4, 0.04, 24.4, solid(0x77736b, 0.8), { solid: false, cast: false });
+  const conc = M('concrete');
+  // calçadas junto aos prédios (anel) e ao longo das avenidas
+  for (const [x, z, w, d] of [[-12, -19, 16, 2], [12, -19, 16, 2], [-12, 19, 16, 2], [12, 19, 16, 2], [-19, -12, 2, 16], [-19, 12, 2, 16], [19, -12, 2, 16], [19, 12, 2, 16],
+    [-3.2, -33, 1.6, 26], [3.2, -33, 1.6, 26], [-3.2, 33, 1.6, 26], [3.2, 33, 1.6, 26], [-33, -3.2, 26, 1.6], [-33, 3.2, 26, 1.6], [33, -3.2, 26, 1.6], [33, 3.2, 26, 1.6]]) {
+    box(g, x, 0, z, w, 0.07, d, conc, { solid: false, cast: false });
+  }
+  // marcações da rua
+  const paint = solid(0xd8d4c8, 0.6);
   for (let i = -10; i <= 10; i += 4) {
-    box(g, i, 0, -15.5, 2, 0.02, 0.25, 0x9a9a90, { solid: false, cast: false });
-    box(g, i, 0, 15.5, 2, 0.02, 0.25, 0x9a9a90, { solid: false, cast: false });
+    for (const zz of [-15.5, 15.5]) box(g, i, 0, zz, 2, 0.012, 0.18, paint, { solid: false, cast: false });
+    for (const xx of [-15.5, 15.5]) box(g, xx, 0, i, 0.18, 0.012, 2, paint, { solid: false, cast: false });
+  }
+  for (let t = 22; t < 44; t += 4) for (const [x, z, w, d] of [[0, t, 0.15, 2], [0, -t, 0.15, 2], [t, 0, 2, 0.15], [-t, 0, 2, 0.15]]) box(g, x, 0, z, w, 0.012, d, paint, { solid: false, cast: false });
+  // faixas de pedestre na entrada das avenidas
+  for (let k = -3; k <= 3; k += 1) {
+    box(g, k, 0, -20.8, 0.5, 0.013, 1.6, paint, { solid: false, cast: false });
+    box(g, k, 0, 20.8, 0.5, 0.013, 1.6, paint, { solid: false, cast: false });
+    box(g, -20.8, 0, k, 1.6, 0.013, 0.5, paint, { solid: false, cast: false });
+    box(g, 20.8, 0, k, 1.6, 0.013, 0.5, paint, { solid: false, cast: false });
+  }
+  // poças (quase espelhos: refletem o céu e as luzes)
+  const puddle = solid(0x0a0c10, 0.04, 0.0, { envMapIntensity: 2.0 });
+  for (const [x, z, sx, sz] of [[-14, -6, 2.4, 1.3], [15, 10, 1.8, 1.0], [-2, 27, 1.4, 2.2], [26, -1.5, 2.0, 0.9], [-30, 1.5, 1.6, 1.1], [7, -15, 1.2, 0.8]]) {
+    const pm = new THREE.Mesh(new THREE.CircleGeometry(1, 24), puddle);
+    pm.rotation.x = -Math.PI / 2; pm.scale.set(sx, sz, 1); pm.position.set(x, 0.015, z); pm.receiveShadow = true;
+    g.add(pm);
   }
 
-  // ---------- prédios (quarteirões em L em volta da praça; 4 avenidas)
-  const facade = [0x6d6a75, 0x7a6658, 0x5d6b73, 0x80786a, 0x6a5d68, 0x58646a];
-  const windowM = new THREE.MeshBasicMaterial({ color: 0xffd28a });
-  const windowOff = mat(0x1d222c);
-  let fi = 0;
-  function building(x0, x1, z0, z1, h) {
-    const w = x1 - x0, d = z1 - z0, x = (x0 + x1) / 2, z = (z0 + z1) / 2;
-    box(g, x, 0, z, w, h, d, facade[fi++ % facade.length], { collide: true });
-    box(g, x, h, z, w + 0.3, 0.3, d + 0.3, 0x3a3a40, { solid: false });
-    // janelas nas faces voltadas para as ruas
-    const faces = [];
-    if (Math.abs(z1) < 30 || Math.abs(z0) < 30) faces.push(['z', z0 > 0 ? z0 - 0.03 : z1 + 0.03, x0, x1]);
-    if (Math.abs(x1) < 30 || Math.abs(x0) < 30) faces.push(['x', x0 > 0 ? x0 - 0.03 : x1 + 0.03, z0, z1]);
-    for (const [axis, at, a0, a1] of faces) {
-      for (let a = a0 + 1.5; a < a1 - 1; a += 2.6) {
-        for (let y = 3.5; y < h - 1; y += 3) {
-          const lit = Math.random() < 0.35;
-          const wm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.4), lit ? windowM : windowOff);
-          if (axis === 'z') { wm.position.set(a, y, at); wm.rotation.y = at > 0 ? Math.PI : 0; }
-          else { wm.position.set(at, y, a); wm.rotation.y = at > 0 ? -Math.PI / 2 : Math.PI / 2; }
-          g.add(wm);
-        }
-      }
-    }
-  }
-  const blocks = [];
+  // ---------- prédios
+  const walls = [M('brick'), plaster(0x9a7a68), plaster(0x7a8a94), M('brick'), plaster(0xa89a80), plaster(0x8a7088)];
+  let wi = 0;
+  const pieces = [];
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    // braço ao longo do eixo x e ao longo do eixo z
-    blocks.push([sx > 0 ? 4 : -46, sx > 0 ? 46 : -4, sz > 0 ? 20 : -46, sz > 0 ? 46 : -20]);
-    blocks.push([sx > 0 ? 20 : -46, sx > 0 ? 46 : -20, sz > 0 ? 4 : -20, sz > 0 ? 20 : -4]);
+    pieces.push([sx > 0 ? 4 : -46, sx > 0 ? 46 : -4, sz > 0 ? 20 : -46, sz > 0 ? 46 : -20, 'h']);
+    pieces.push([sx > 0 ? 20 : -46, sx > 0 ? 46 : -20, sz > 0 ? 4 : -20, sz > 0 ? 20 : -4, 'v']);
   }
-  for (const [x0, x1, z0, z1] of blocks) {
-    // divide em 2 prédios de alturas diferentes
-    if (x1 - x0 > z1 - z0) {
-      const m = (x0 + x1) / 2 + rand(-4, 4);
-      building(x0, m, z0, z1, rand(9, 16));
-      building(m, x1, z0, z1, rand(8, 18));
-    } else {
-      const m = (z0 + z1) / 2 + rand(-3, 3);
-      building(x0, x1, z0, m, rand(9, 16));
-      building(x0, x1, m, z1, rand(8, 18));
+  for (const [x0, x1, z0, z1, kind] of pieces) {
+    const splits = [];
+    if (kind === 'h') { const m = (x0 + x1) / 2 + rand(-4, 4); splits.push([x0, m, z0, z1], [m, x1, z0, z1]); }
+    else { const m = (z0 + z1) / 2 + rand(-3, 3); splits.push([x0, x1, z0, m], [x0, x1, m, z1]); }
+    for (const [a0, a1, b0, b1] of splits) {
+      const faces = [];
+      if (b1 === -20 || b1 === -4) faces.push('s');
+      if (b0 === 20 || b0 === 4) faces.push('n');
+      if (a0 === 4 || a0 === 20) faces.push('w');
+      if (a1 === -4 || a1 === -20) faces.push('e');
+      const plazaSide = b1 === -20 || b0 === 20 || a0 === 20 || a1 === -20;
+      building(g, a0, a1, b0, b1, rand(10, 17), { wall: walls[wi++ % walls.length], faces, shop: plazaSide });
     }
   }
   // fundo das avenidas
-  box(g, 0, 0, -47, 10, 12, 1, 0x4a4650, { collide: true }); // atrás da estação
-  box(g, 47, 0, 0, 1, 10, 10, 0x4a4650, { collide: true });
-  box(g, -47, 0, 0, 1, 10, 10, 0x4a4650, { collide: true });
-  box(g, 0, 0, 47, 10, 10, 1, 0x4a4650, { collide: true });
+  box(g, 0, 0, -47, 10, 12, 1, plaster(0x4a4650), { collide: true });
+  box(g, 47, 0, 0, 1, 10, 10, plaster(0x4a4650), { collide: true });
+  box(g, -47, 0, 0, 1, 10, 10, plaster(0x4a4650), { collide: true });
+  box(g, 0, 0, 47, 10, 10, 1, plaster(0x4a4650), { collide: true });
 
-  // ---------- postes de luz (luz real em poucos; brilho falso nos demais)
-  const poleM = mat(0x2a2a30);
-  const lampHead = new THREE.MeshBasicMaterial({ color: 0xffdca0 });
-  const poolGeo = new THREE.CircleGeometry(3.2, 24);
-  const poolMat = new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
-  const posts = [[-11, -11], [11, -11], [-11, 11], [11, 11], [0, -28], [0, -40], [30, 0], [-30, 0], [0, 30], [16, -16], [-16, 16]];
-  posts.forEach(([x, z], i) => {
-    box(g, x, 0, z, 0.15, 4.2, 0.15, poleM, { collide: true, solid: false });
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.3), lampHead);
-    head.position.set(x, 4.2, z);
-    g.add(head);
-    const pool = new THREE.Mesh(poolGeo, poolMat);
-    pool.rotation.x = -Math.PI / 2;
-    pool.position.set(x, 0.04, z);
-    g.add(pool);
-    if (i < 4) {
-      const L = new THREE.PointLight(0xffc98a, 18, 16, 1.8);
-      L.position.set(x, 4, z);
-      g.add(L);
-    }
-  });
+  // ---------- postes de luz
+  [[-11, -11, Math.PI * 0.25], [11, -11, -Math.PI * 0.25], [-11, 11, Math.PI * 0.75], [11, 11, -Math.PI * 0.75], [-2.8, -28, Math.PI / 2], [2.8, -38, -Math.PI / 2], [30, 2.8, Math.PI], [-30, -2.8, 0], [2.8, 30, -Math.PI / 2], [16.5, -16.5, -Math.PI * 0.25], [-16.5, 16.5, Math.PI * 0.75]]
+    .forEach(([x, z, r], i) => lampPost(g, x, z, r, i < 4));
+  // varal de lâmpadas na praça
+  stringLights(g, new THREE.Vector3(-11, 4.6, -11), new THREE.Vector3(11, 4.6, 11), 1.6);
+  stringLights(g, new THREE.Vector3(11, 4.6, -11), new THREE.Vector3(-11, 4.6, 11), 1.6);
 
-  // ---------- praça: chafariz, bancos, árvores, quadro de cartazes
-  box(g, 0, 0, 0, 4.4, 0.6, 4.4, 0x77736c, { collide: true });
-  box(g, 0, 0.6, 0, 1, 1.4, 1, 0x8a867e);
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 3.8), new THREE.MeshLambertMaterial({ color: 0x2a4a66, emissive: 0x0a1a2a }));
-  water.rotation.x = -Math.PI / 2;
-  water.position.y = 0.55;
-  g.add(water);
-  const benchM = mat(0x6a4a30);
-  for (const [x, z, r] of [[-7, -4, 0], [7, 4, 0], [-4, 7, 1], [4, -7, 1]]) {
-    if (r) box(g, x, 0, z, 0.6, 0.45, 2.0, benchM, { collide: true }); else box(g, x, 0, z, 2.0, 0.45, 0.6, benchM, { collide: true });
-  }
-  const trunk = mat(0x4a3424), leaf = mat(0x2f4a36);
-  for (const [x, z] of [[-9, -8], [9, 8], [-9, 8], [9, -3]]) {
-    box(g, x, 0, z, 0.35, 2.6, 0.35, trunk, { collide: true });
-    const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 0), leaf);
-    c.position.set(x, 3.4, z);
-    c.castShadow = true;
-    g.add(c);
-  }
-  const board = box(g, -6, 0, 9.5, 2.2, 2.0, 0.15, 0x4a3a2a, { collide: true });
-  for (let i = 0; i < 4; i++) box(g, -6.7 + i * 0.45, 0.9, 9.42, 0.36, 0.5, 0.02, 0xeeeedd, { solid: false, cast: false });
+  // ---------- praça: chafariz, bancos, árvores, floreiras
+  fountain(g, 0, 0);
+  for (const [x, z, r] of [[-7, -4, 0], [7, 4, Math.PI], [-4, 7, Math.PI / 2], [4, -7, -Math.PI / 2]]) bench(g, x, z, r);
+  for (const [x, z, sc] of [[-9, -8, 1], [9, 8, 1.1], [-9, 8, 0.95], [9, -3, 1]]) tree(g, x, z, sc);
+  for (const [x, z] of [[-10.5, 0], [10.5, 0], [0, 10.5], [0, -10.5]]) planter(g, x, z, 1.1);
+  for (const [x, z] of [[-12.8, -5], [12.8, 6], [-5, 12.8], [18.2, -9], [-18.2, 9], [3.6, -25], [-3.6, 25]]) trashBin(g, x, z);
+  for (const [x, z] of [[-18.3, -14], [18.3, 14], [3.7, 22], [-22, -3.7]]) hydrant(g, x, z);
+  // carros estacionados
+  car(g, 16, -7, 0, 0x8a1c1c);
+  car(g, -16, 6, Math.PI, 0x1c3a6a);
+  car(g, 8, 16, Math.PI / 2, 0xd8d4c8);
+  car(g, -26, 2.1, Math.PI / 2, 0x2a4a3a);
+  // quadro de cartazes
+  const board = box(g, -6, 0, 9.5, 2.2, 2.0, 0.12, M('wood'), { collide: true, round: 0.03 });
+  for (let i = 0; i < 4; i++) sign(g, i === 1 ? 'DESAPARECIDA\nLIA MOURA' : i === 2 ? 'VOCÊ VIU\nESTA MULHER?' : 'ALUGA-SE\nquarto', -6.75 + i * 0.5, 1.15, 9.43, Math.PI, 0.42, 0.56, { bg: '#ece6d6', fg: '#222', font: 'bold 54px Arial', glowI: 0.05 });
 
   // ---------- Café Lume (fim da avenida oeste)
-  box(g, -45.5, 0, 0, 1, 4, 8, 0x5a3a2a, { collide: true });
-  const cafeSign = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.8), new THREE.MeshBasicMaterial({ color: 0xffb36b }));
-  cafeSign.position.set(-44.9, 3.6, 0); cafeSign.rotation.y = Math.PI / 2;
-  g.add(cafeSign);
-  const cafeWin = new THREE.Mesh(new THREE.PlaneGeometry(5, 2.2), new THREE.MeshBasicMaterial({ color: 0xffd7a0 }));
-  cafeWin.position.set(-44.95, 1.5, 0); cafeWin.rotation.y = Math.PI / 2;
-  g.add(cafeWin);
-  for (const z of [-2, 2]) { box(g, -41, 0, z, 0.8, 0.75, 0.8, 0x3a2a20, { collide: true }); }
-  const cafeL = new THREE.PointLight(0xffb36b, 10, 12, 1.8);
+  box(g, -45.6, 0, 0, 0.8, 4.2, 9, M('brick'), { collide: true });
+  box(g, -45.1, 0.2, 0, 0.1, 2.6, 5, shopWindow(), { solid: false });
+  box(g, -44.2, 2.9, 0, 2.2, 0.1, 6, solid(0x2a4a3a, 0.9), { solid: false }).rotation.z = 0.25;
+  sign(g, 'Café Lume', -45.0, 3.75, 0, Math.PI / 2, 4, 0.8, { fg: '#ffb36b' });
+  for (const z of [-2.4, 2.4]) {
+    mesh(g, new THREE.CylinderGeometry(0.4, 0.4, 0.04, 20), solid(0x2a2a2a, 0.4, 0.6), -40.5, 0.74, z);
+    mesh(g, new THREE.CylinderGeometry(0.04, 0.06, 0.74, 8), solid(0x2a2a2a, 0.4, 0.6), -40.5, 0.37, z);
+    addCollider(-40.5, z, 0.8, 0.8, 0.8);
+    for (const dx of [-0.65, 0.65]) { box(g, -40.5 + dx, 0.44, z, 0.4, 0.04, 0.4, M('wood'), { solid: false }); box(g, -40.5 + dx * 1.3, 0.44, z, 0.04, 0.45, 0.4, M('wood'), { solid: false }); }
+    mesh(g, new THREE.CylinderGeometry(0.04, 0.035, 0.08, 10), solid(0xeeeeee, 0.3), -40.4, 0.8, z);
+  }
+  const cafeL = new THREE.PointLight(0xffb36b, 25, 14, 2);
   cafeL.position.set(-43, 3, 0);
   g.add(cafeL);
 
   // ---------- Oficina do Otávio (fim da avenida leste)
-  box(g, 45.5, 0, 0, 1, 4, 8, 0x3a4a3a, { collide: true });
-  const shopSign = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 0.8), new THREE.MeshBasicMaterial({ color: 0x8adfa0 }));
-  shopSign.position.set(44.9, 3.6, 0); shopSign.rotation.y = -Math.PI / 2;
-  g.add(shopSign);
-  box(g, 41.5, 0, 0, 1.0, 0.95, 3.2, 0x5a4a3a, { collide: true }); // balcão
-  const musicBox = box(g, 41.5, 0.95, -0.8, 0.45, 0.3, 0.35, 0x8a5a3a);
-  for (let i = 0; i < 4; i++) box(g, 41.5, 0.95, 0.3 + i * 0.35, 0.3, 0.22, 0.25, 0x2a2a2a, { solid: false });
-  const shopL = new THREE.PointLight(0x8adfa0, 8, 11, 1.8);
+  box(g, 45.6, 0, 0, 0.8, 4.2, 9, plaster(0x5a6a5a), { collide: true });
+  box(g, 45.1, 0.2, 0, 0.1, 2.6, 5, shopWindow(), { solid: false });
+  sign(g, 'OTÁVIO\nconsertos de rádio', 45.0, 3.7, 0, -Math.PI / 2, 4.4, 0.9, { fg: '#9adfb0', font: 'bold 50px Arial' });
+  box(g, 41.5, 0, 0, 1.0, 0.95, 3.2, M('wood'), { collide: true, round: 0.03 });
+  const musicBox = box(g, 41.5, 0.95, -0.8, 0.42, 0.26, 0.32, solid(0x6a3a22, 0.5), { round: 0.03, dynamic: true });
+  mesh(g, new THREE.CylinderGeometry(0.015, 0.015, 0.16, 8), solid(0xd4af37, 0.3, 1), 41.5, 1.1, -0.6, { dynamic: true }).rotation.x = Math.PI / 2;
+  for (let i = 0; i < 4; i++) {
+    box(g, 41.5, 0.95, 0.3 + i * 0.35, 0.3, 0.22, 0.26, solid([0x4a3a2a, 0x2a2a2a, 0x6a5a40, 0x3a3a4a][i], 0.5), { solid: false, round: 0.03 });
+    mesh(g, new THREE.CircleGeometry(0.06, 16), solid(0x111111, 0.9), 41.34, 1.06, 0.3 + i * 0.35).rotation.y = -Math.PI / 2;
+  }
+  const shopL = new THREE.PointLight(0x9adfb0, 14, 12, 2);
   shopL.position.set(43, 3, 0);
   g.add(shopL);
 
-  // ---------- Banca do Bruno (canto da praça)
-  box(g, 12.5, 0, -12.5, 2.4, 2.2, 1.6, 0x2a5a4a, { collide: true });
-  box(g, 12.5, 2.2, -12.5, 2.9, 0.15, 2.2, 0x1a3a2a, { solid: false });
-  for (let i = 0; i < 4; i++) box(g, 11.6 + i * 0.6, 0.8, -11.68, 0.45, 0.6, 0.02, [0xd84a4a, 0xe8d84a, 0x4a8ad8, 0xeeeeee][i], { solid: false, cast: false });
+  // ---------- Banca do Bruno
+  box(g, 12.5, 0, -12.5, 2.4, 2.2, 1.6, solid(0x2a5a4a, 0.5, 0.3), { collide: true, round: 0.06 });
+  box(g, 12.5, 2.2, -12.5, 2.9, 0.12, 2.2, solid(0x1a3a2a, 0.5, 0.3), { solid: false, round: 0.04 });
+  for (let i = 0; i < 8; i++) box(g, 11.55 + (i % 4) * 0.62, 0.65 + Math.floor(i / 4) * 0.7, -11.68, 0.48, 0.6, 0.02, solid([0xd84a4a, 0xe8d84a, 0x4a8ad8, 0xeeeeee, 0x8a4ad8, 0x4ad88a, 0xd8884a, 0x333333][i], 0.6), { solid: false, cast: false });
+  sign(g, 'BANCA DO BRUNO', 12.5, 2.0, -11.69, 0, 2.2, 0.28, { fg: '#ffe9a0', font: 'bold 60px Arial', glowI: 1.0 });
 
   // ---------- Prédio da Dona Celeste (fim da avenida sul)
-  box(g, 0, 0, 45.5, 8, 4, 1, 0x6a5a6a, { collide: true });
-  box(g, 0, 0, 44.9, 1.4, 2.4, 0.1, 0x3a2a2a, { solid: false });
-  box(g, 2.5, 0, 42.5, 2.0, 0.45, 0.6, benchM, { collide: true });
+  box(g, 0, 0, 45.6, 9, 4.2, 0.8, plaster(0x7a6a7a), { collide: true });
+  box(g, 0, 0, 45.15, 1.4, 2.4, 0.1, solid(0x3a2a22, 0.6), { solid: false });
+  box(g, 0, 0, 44.6, 2.4, 0.15, 1.0, conc, { solid: false });
+  for (const sx of [-2.8, 2.8]) box(g, sx, 1.2, 45.15, 1.2, 1.3, 0.06, litWindow(), { solid: false });
+  bench(g, 2.5, 42.5, 0);
+  planter(g, -2.6, 43.6, 0.8);
 
   // ---------- Estação Aurora (fim da avenida norte)
-  box(g, -4.4, 0, -42, 0.8, 3.4, 6, 0x5a5a62, { collide: true });
-  box(g, 4.4, 0, -42, 0.8, 3.4, 6, 0x5a5a62, { collide: true });
-  box(g, 0, 3.4, -42, 9.6, 0.6, 6, 0x4a4a52, { solid: false });
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.9), new THREE.MeshBasicMaterial({ color: 0x9ab0d8 }));
-  sign.position.set(0, 3.7, -38.95);
-  g.add(sign);
-  // escada descendo (visual)
-  for (let i = 0; i < 6; i++) box(g, 0, -0.25 * i - 0.25, -41 - i * 0.6, 7.8, 0.25, 0.6, 0x3a3a3e, { solid: false, cast: false });
-  // portão acústico
+  const tiles = M('tiles');
+  box(g, -4.4, 0, -42, 0.8, 3.4, 6, tiles, { collide: true });
+  box(g, 4.4, 0, -42, 0.8, 3.4, 6, tiles, { collide: true });
+  box(g, 0, 3.4, -42, 9.8, 0.4, 6.4, solid(0x2c3038, 0.5, 0.5), { solid: false, round: 0.08 });
+  sign(g, 'ESTAÇÃO AURORA', 0, 3.6, -38.78, 0, 5.2, 0.7, { bg: '#1a2a4a', fg: '#e8eef7', font: 'bold 62px Arial', glowI: 1.2 });
+  sign(g, 'LINHA FECHADA DESDE 1987', 0, 2.95, -38.79, 0, 3, 0.3, { bg: '#2a1a1a', fg: '#ff9a8a', font: 'bold 50px Arial', glowI: 0.6 });
+  for (let i = 0; i < 6; i++) box(g, 0, -0.25 * i - 0.25, -41 - i * 0.6, 7.8, 0.25, 0.6, tiles, { solid: false, cast: false });
+  for (const sx of [-3.6, 3.6]) mesh(g, new THREE.CylinderGeometry(0.03, 0.03, 4, 8), solid(0x8a8c90, 0.3, 0.9), sx, 0.2, -42.5).rotation.x = 1.1;
   const gate = new THREE.Group();
-  for (let i = -3.5; i <= 3.5; i += 0.5) {
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 3.0, 0.08), mat(0x6a6a70));
+  gate.userData.dynamic = true;
+  const gateM = solid(0x5a5c60, 0.4, 0.8);
+  for (let i = -3.5; i <= 3.5; i += 0.4) {
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 3.0, 8), gateM);
     bar.position.set(i, 1.5, -39.5);
     bar.castShadow = true;
     gate.add(bar);
   }
-  const gateFrame = new THREE.Mesh(new THREE.BoxGeometry(7.8, 0.15, 0.15), mat(0x6a6a70));
-  gateFrame.position.set(0, 2.9, -39.5);
-  gate.add(gateFrame);
+  for (const y of [0.3, 2.9]) { const fr = new THREE.Mesh(new THREE.BoxGeometry(7.8, 0.1, 0.1), gateM); fr.position.set(0, y, -39.5); gate.add(fr); }
   g.add(gate);
   const gateCol = { minX: -4, maxX: 4, minZ: -39.7, maxZ: -39.3, top: 10, on: true };
   world.colliders.push(gateCol);
-  const gateHorn = box(g, 3.6, 2.3, -39.3, 0.4, 0.4, 0.3, 0x8a7a5a); // "ouvido" do portão
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.5, 20, 1, true), solid(0xb8933a, 0.3, 1, { side: THREE.DoubleSide }));
+  horn.position.set(3.6, 2.4, -39.2); horn.rotation.x = Math.PI / 2;
+  horn.userData.dynamic = true;
+  g.add(horn);
+  const gateHorn = horn;
+  const stationL = new THREE.PointLight(0x9ab0ff, 10, 10, 2);
+  stationL.position.set(0, 3, -40);
+  g.add(stationL);
 
   // ---------- Camada Resonance: rastro da Lia e marcas
   const trail = new THREE.Group();
@@ -238,7 +246,7 @@ export function build(ctx) {
   // ---------- Iara (irmã da Lia)
   new NPC({
     id: 'iara', name: 'Iara', pos: new THREE.Vector3(-6, 0, 8.4), facing: Math.PI,
-    colors: { skin: 0xb07a55, top: 0x8a3a4a, legs: 0x2a2a3a, hair: 0x1a1210, longHair: true, accent: 0xe8d0a0 },
+    look: { base: 'michelle', height: 1.66 },
     talk: async () => {
       if (!flag('met_iara')) {
         await say([
@@ -287,7 +295,7 @@ export function build(ctx) {
   // ---------- Bruno (banca) — comenta o quanto você usa a Resonance; não existe na camada oculta
   new NPC({
     id: 'bruno', name: 'Bruno', pos: new THREE.Vector3(11.2, 0, -10.9), facing: -Math.PI * 0.75, frozenInRes: true,
-    colors: { skin: 0xd8a080, top: 0xd88a3a, legs: 0x3a3a5a, hair: 0x5a3a20, hat: 0x2a5a4a },
+    look: { base: 'avatar', height: 1.74, hide: ['Wolf3D_Beard'], tint: { Wolf3D_Outfit_Top: 0xd8803a, Wolf3D_Outfit_Bottom: 0x3a4a6a, Wolf3D_Headwear: 0x2a5a4a } },
     talk: async () => {
       if (Sensor.R > 0.6) {
         await say([{ who: 'Ari', text: 'Ele está parado. Como uma foto. Na camada oculta, o Bruno simplesmente… não está aqui.', voice: false }]);
@@ -317,8 +325,8 @@ export function build(ctx) {
 
   // ---------- Dona Celeste — só revela o importante na Resonance
   new NPC({
-    id: 'celeste', name: 'Dona Celeste', pos: new THREE.Vector3(2.5, 0, 42.3), facing: Math.PI, sit: true, hasHiddenLayer: true,
-    colors: { skin: 0xe0b090, top: 0x6a4a7a, legs: 0x3a2a4a, hair: 0xd8d8d8, accent: 0xa0d0c0 },
+    id: 'celeste', name: 'Dona Celeste', pos: new THREE.Vector3(2.5, 0, 42.42), facing: Math.PI, sit: true, hasHiddenLayer: true,
+    look: { base: 'michelle', height: 1.58, tintAll: 0xcfc2e6 },
     talk: async () => {
       meet('celeste', 'Dona Celeste', 'Moradora antiga. Senta no banco da avenida sul toda noite.');
       if (Sensor.R > 0.6) {
@@ -348,7 +356,7 @@ export function build(ctx) {
   // ---------- Seu Otávio — rabugento; na Resonance fala da caixa da Lia
   new NPC({
     id: 'otavio', name: 'Seu Otávio', pos: new THREE.Vector3(42.6, 0, 1.2), facing: -Math.PI / 2, hasHiddenLayer: true, radius: 2.7,
-    colors: { skin: 0x8a5a3a, top: 0x5a6a5a, legs: 0x2a2a2a, hair: 0x9a9a9a, accent: 0x3a3a3a },
+    look: { base: 'avatar', height: 1.72, tint: { Wolf3D_Outfit_Top: 0x5a6a5a, Wolf3D_Outfit_Bottom: 0x2a2a2a, Wolf3D_Beard: 0xb8b8b8, Wolf3D_Headwear: 0x6a6a6a } },
     talk: async () => {
       meet('otavio', 'Seu Otávio', 'Conserta rádios na avenida leste. Mal-humorado.');
       if (Sensor.R > 0.6) {

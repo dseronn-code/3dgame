@@ -130,6 +130,8 @@ public class MainActivity extends Activity {
         if (path.endsWith(".js")) return "text/javascript";
         if (path.endsWith(".css")) return "text/css";
         if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".jpg")) return "image/jpeg";
+        if (path.endsWith(".glb")) return "model/gltf-binary";
         return "application/octet-stream";
     }
 

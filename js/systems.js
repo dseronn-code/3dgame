@@ -1,5 +1,6 @@
 // Sistemas por zona: interações, ecos, NPCs, camadas (Resonance/normal), a Estática
-import { THREE, scene, camera, world, ghostMat, buildHumanoid, animateHumanoid, clamp, lerp, rand, angleDiff } from './engine.js';
+import { THREE, scene, camera, world, ghostMat, clamp, lerp, rand, angleDiff } from './engine.js';
+import { makeCharacter, ghostMaterial, rotateBoneWorld } from './assets.js';
 import { Sensor } from './sensor.js';
 import { makePanner, setPannerPos, voice, sfx } from './audio.js';
 import { subtitle, $ } from './ui.js';
@@ -21,6 +22,7 @@ export function resetZone() {
 //  Camadas: objetos que só existem na Resonance ('res') ou só fora dela ('normal')
 export function layered(obj, layer, maxOpacity = 1) {
   const mats = [];
+  obj.userData.dynamic = true;
   obj.traverse((o) => {
     if (!o.material) return;
     if (!o.material.transparent) { o.material = o.material.clone(); o.material.transparent = true; }
@@ -93,9 +95,11 @@ export class Echo {
     this.warned = false;
     this.group = new THREE.Group();
     this.group.position.copy(this.pos);
-    this.fig = buildHumanoid({ ghost: true, opacity: 0.55, ...(this.figure || {}), skin: 0xbff4ff, top: 0x7fe9ff, legs: 0x4fb8e0, hair: 0x9fe6ff, shoe: 0x4fb8e0 });
+    this.ghost = ghostMaterial(0x7fe9ff);
+    this.fig = makeCharacter('xbot', { ghost: this.ghost, height: 1.68 });
     this.fig.root.rotation.y = this.facing;
-    this.group.add(this.fig.root);
+    world.group.add(this.fig.root);
+    this.fig.root.position.copy(this.pos);
     const ring = new THREE.Mesh(new THREE.RingGeometry(this.radius - 0.12, this.radius, 48), ghostMat(0x7fe9ff, 0.35));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.03;
@@ -114,15 +118,19 @@ export class Echo {
     this.t += dt;
     const on = this.active() && !this.done;
     this.group.visible = this.group.visible && (on || this.fadeOut > 0);
+    const fade = on ? 1 : Math.max(0, this.fadeOut || 0);
+    this.ghost.opacity = 0.85 * R * fade;
+    this.fig.root.visible = this.ghost.opacity > 0.01;
     if (!on) {
       if (this.fadeOut > 0) {
         this.fadeOut -= dt;
-        this.group.scale.setScalar(1 + (1 - this.fadeOut) * 0.4);
+        this.fig.root.position.y += dt * 0.6;
+        this.animatePose(dt);
         for (const m of this.layer.mats) m.base *= 0.95;
       }
       return;
     }
-    this.animatePose();
+    if (this.fig.root.visible) this.animatePose(dt);
     // sussurros direcionais (só audíveis na Resonance): o jogador encontra o eco pelo som
     this.whisperT -= dt;
     if (this.whisperT <= 0) {
@@ -149,14 +157,20 @@ export class Echo {
     }
     this.near = near && this.progress > 0;
   }
-  animatePose() {
-    const h = this.fig, t = this.t;
-    animateHumanoid(h, { walk: 0, phase: 0, idleT: t });
-    if (this.pose === 'record') { h.armR.rotation.set(-1.3, 0, 0.3); h.armL.rotation.set(-0.3, 0, -0.1); h.head.rotation.x = 0.2; }
-    else if (this.pose === 'argue') { h.armR.rotation.set(-0.8 + Math.sin(t * 3) * 0.6, 0, 0.2); h.armL.rotation.set(-0.6 + Math.cos(t * 2.5) * 0.4, 0, -0.2); h.root.rotation.y = this.facing + Math.sin(t * 0.7) * 0.6; }
-    else if (this.pose === 'reach') { h.armR.rotation.set(-1.6, 0, 0); h.armL.rotation.set(-1.6, 0, 0); h.chest.rotation.x = 0.15; }
-    else if (this.pose === 'kneel') { animateHumanoid(h, { walk: 0, phase: 0, crouch: 1, idleT: t }); h.head.rotation.x = 0.4; }
-    h.root.position.y = Math.sin(t * 1.3) * 0.04;
+  animatePose(dt) {
+    const f = this.fig, t = this.t;
+    f.gesture('agree', this.pose === 'record' ? 0.7 : 0);
+    f.gesture('headShake', this.pose === 'argue' ? 0.8 + Math.sin(t) * 0.2 : 0);
+    f.gesture('sad_pose', this.pose === 'kneel' ? 1 : this.pose === 'argue' ? 0.4 : 0);
+    if (this.pose === 'argue') f.root.rotation.y = this.facing + Math.sin(t * 0.7) * 0.6;
+    f.crouch = this.pose === 'kneel' ? 1 : 0;
+    f.update(dt);
+    if (this.pose === 'reach' || this.pose === 'record') {
+      f.root.updateMatrixWorld(true);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(f.root.quaternion);
+      if (this.pose === 'reach') { rotateBoneWorld(f.bones.LeftArm, right, -1.1); rotateBoneWorld(f.bones.RightArm, right, -1.1); }
+      else rotateBoneWorld(f.bones.RightArm, right, -1.3);
+    }
   }
   complete() {
     this.done = true;
@@ -171,15 +185,17 @@ export class Echo {
 //  NPCs
 export class NPC {
   constructor(def) {
-    Object.assign(this, { facing: 0, sit: false, hasHiddenLayer: false, frozenInRes: false, radius: 2.2 }, def);
-    this.h = buildHumanoid(this.colors);
-    this.h.root.position.copy(this.pos);
-    this.h.root.rotation.y = this.facing;
-    world.group.add(this.h.root);
+    Object.assign(this, { facing: 0, sit: false, sitDrop: 0.44, hasHiddenLayer: false, frozenInRes: false, radius: 2.2 }, def);
+    const L = this.look;
+    this.ch = makeCharacter(L.base, L);
+    this.ch.root.position.copy(this.pos);
+    this.ch.root.rotation.y = this.facing;
+    world.group.add(this.ch.root);
     this.t = Math.random() * 5;
     this.talking = false;
+    this.headYaw = 0;
     if (this.hasHiddenLayer) {
-      const aura = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 2.1, 16, 1, true), ghostMat(0x7fe9ff, 0.22));
+      const aura = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 2.1, 20, 1, true), ghostMat(0x7fe9ff, 0.2));
       aura.material.side = THREE.DoubleSide;
       aura.position.copy(this.pos);
       aura.position.y = 1.05 + (this.sit ? -0.3 : 0);
@@ -187,20 +203,45 @@ export class NPC {
       layered(aura, 'res');
     }
     this.it = interactable({
-      pos: this.pos, radius: this.radius, label: def.label || `Falar com ${this.name}`, mesh: this.h.root,
+      pos: this.pos, radius: this.radius, label: def.label || `Falar com ${this.name}`, mesh: this.ch.root,
       onUse: async () => { this.talking = true; await this.talk(); this.talking = false; },
     });
     Z.npcs.push(this);
   }
   update(dt, R) {
     const frozen = this.frozenInRes && R > 0.6;
-    if (!frozen) this.t += dt;
-    animateHumanoid(this.h, { walk: 0, phase: 0, idleT: this.t, sit: this.sit, talk: this.talking });
-    const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
-    const near = Math.hypot(dx, dz) < 5 && !frozen;
-    const want = near ? clamp(angleDiff(this.h.root.rotation.y, Math.atan2(dx, dz)), -1.1, 1.1) : 0;
-    this.h.head.rotation.y = lerp(this.h.head.rotation.y, want, Math.min(1, dt * 4));
-    if (this.frozenInRes) for (const m of this.h.mats) m.emissive.setScalar(frozen ? 0.12 : 0);
+    const ch = this.ch;
+    if (!frozen) {
+      this.t += dt;
+      ch.gesture('agree', this.talking ? 0.35 + Math.sin(this.t * 1.3) * 0.25 : 0);
+      ch.gesture('sad_pose', this.mood === 'sad' ? 0.6 : 0);
+      if (this.talking) ch.talkT = 0.2;
+      ch.update(dt);
+      if (this.sit) this.sitPose();
+      // olha para o jogador quando perto
+      const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
+      const near = Math.hypot(dx, dz) < 5;
+      const want = near ? clamp(angleDiff(this.facing, Math.atan2(dx, dz)), -1.0, 1.0) : 0;
+      this.headYaw = lerp(this.headYaw, want, Math.min(1, dt * 4));
+      if (ch.bones.Neck && Math.abs(this.headYaw) > 0.01) {
+        ch.root.updateMatrixWorld(true);
+        rotateBoneWorld(ch.bones.Neck, new THREE.Vector3(0, 1, 0), this.headYaw * 0.6);
+        rotateBoneWorld(ch.bones.Head, new THREE.Vector3(0, 1, 0), this.headYaw * 0.4);
+      }
+    }
+    if (this.frozenInRes) for (const m of ch.mats) m.emissive.setScalar(frozen ? 0.1 : 0);
+  }
+  sitPose() {
+    const ch = this.ch;
+    ch.root.updateMatrixWorld(true);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ch.root.quaternion);
+    for (const side of ['Left', 'Right']) {
+      rotateBoneWorld(ch.bones[side + 'UpLeg'], right, -1.5);
+      rotateBoneWorld(ch.bones[side + 'Leg'], right, 1.55);
+      rotateBoneWorld(ch.bones[side + 'Arm'], right, -0.35);
+      rotateBoneWorld(ch.bones[side + 'ForeArm'], right, -0.6);
+    }
+    ch.model.position.y = ch.baseY - this.sitDrop;
   }
 }
 
@@ -273,7 +314,7 @@ export class Estatica {
       this.shards.setMatrixAt(i, this.dummy.matrix);
     }
     this.shards.instanceMatrix.needsUpdate = true;
-    this.shards.material.color.setRGB(lerp(1, 0.55, R), lerp(1, 0.85, R), 1);
+    this.shards.material.color.setRGB(lerp(1, 0.55, R) * 2.2, lerp(1, 0.85, R) * 2.2, 2.2);
     this.core.position.set(this.pos.x, 1.3, this.pos.z);
     setPannerPos(this.panner, { x: this.pos.x, y: 1.3, z: this.pos.z });
     // som: rajadas de estática mais frequentes com ruído

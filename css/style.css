@@ -111,7 +111,7 @@ h2 { font-weight: normal; font-size: 30px; letter-spacing: .1em; color: #bff4ff;
 button.big { display: block; margin: 10px auto; min-width: 240px; padding: 13px 28px; font-size: 18px; color: #0b0f1a; background: #e8eef7; border: none; border-radius: 30px; letter-spacing: .05em; }
 button.big:active { transform: scale(.97); }
 button.small { display: block; margin: 8px auto; min-width: 200px; padding: 9px 20px; font-size: 15px; color: #e8eef7; background: transparent; border: 1px solid rgba(255,255,255,.3); border-radius: 30px; }
-#calibMeter { height: 10px; background: rgba(255,255,255,.1); border-radius: 5px; overflow: hidden; margin: 20px auto 10px; max-width: 360px; }
+#calibMeter, #loadMeter { height: 10px; background: rgba(255,255,255,.1); border-radius: 5px; overflow: hidden; margin: 20px auto 10px; max-width: 360px; }
 #calibFill { height: 100%; width: 0; background: #7fe9ff; transition: width .08s; }
 #calibCount { font-size: 40px; color: #7fe9ff; margin-bottom: 8px; }
 label.row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-family: system-ui, sans-serif; font-size: 15px; }

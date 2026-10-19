@@ -1,5 +1,6 @@
 // PRÓLOGO — O Primeiro Eco. Apartamento pequeno: tutorial, primeira voz, saída que só aparece no silêncio.
-import { THREE, world, box, mat, ghostMat, isTouch } from '../engine.js';
+import { THREE, world, box, mesh, ghostMat, isTouch } from '../engine.js';
+import { M, solid, fabric, glow } from '../gfx.js';
 import { Z, Echo, interactable, layered } from '../systems.js';
 import { player, cam, input } from '../player.js';
 import { Sensor } from '../sensor.js';
@@ -8,72 +9,144 @@ import { S, flag, setFlag, addNote, addItem } from '../state.js';
 import { subtitle, setObjective, say } from '../ui.js';
 
 export const palette = {
-  normal: { bg: 0x0c0f17, fogNear: 6, fogFar: 26, sky: 0x8a7a6a, ground: 0x2a2420, hemi: 0.75, moon: 0x8899cc, moonI: 0.5 },
-  res: { bg: 0x061a26, fogNear: 4, fogFar: 22, sky: 0x4fa8c8, ground: 0x0a2a3a, hemi: 0.9, moon: 0x7fe9ff, moonI: 0.9 },
+  normal: { fog: 0x0c0f17, fogNear: 8, fogFar: 30, sky: 0x8a7a6a, ground: 0x2a2420, hemi: 0.35, moon: 0x8899cc, moonI: 0.0, exposure: 1.0 },
+  res: { fog: 0x061a26, fogNear: 4, fogFar: 22, sky: 0x4fa8c8, ground: 0x0a2a3a, hemi: 0.6, moon: 0x7fe9ff, moonI: 0.0, exposure: 1.15 },
 };
 export const ambient = 'apartment';
+export const background = 'dark';
 
 export function build(ctx) {
   const g = world.group;
   world.bounds = 8;
   const H = 2.7;
-  const wallM = mat(0xcfc6b8), floorM = mat(0x6b5440), woodM = mat(0x5a4030), darkM = mat(0x2a2522);
+  const wallM = M('wall'), woodM = M('wood');
+  const darkWood = solid(0x3a2a20, 0.6), whiteM = solid(0xe8e4dc, 0.5), metalM = solid(0x8a8c90, 0.35, 0.8);
 
   // chão, teto, paredes
-  box(g, 0, -0.1, 0, 12, 0.1, 9, floorM, { solid: false, cast: false });
-  box(g, 0, H, 0, 10.4, 0.1, 7.4, wallM, { cast: false });
+  box(g, 0, -0.1, 0, 12, 0.1, 9, woodM, { solid: false, cast: false });
+  box(g, 0, H, 0, 10.4, 0.1, 7.4, solid(0xeae6de, 0.95), { cast: false });
   box(g, 0, 0, -3.6, 10.4, H, 0.2, wallM, { collide: true });          // norte
   box(g, -5.1, 0, 0, 0.2, H, 7.4, wallM, { collide: true });           // oeste
-  // sul com a porta da frente em x=-3
-  box(g, 1.35, 0, 3.6, 7.7, H, 0.2, wallM, { collide: true });
+  box(g, 1.35, 0, 3.6, 7.7, H, 0.2, wallM, { collide: true });         // sul (porta em x=-3)
   box(g, -4.55, 0, 3.6, 1.1, H, 0.2, wallM, { collide: true });
   box(g, -3, 2.1, 3.6, 2, 0.6, 0.2, wallM);
-  const frontDoor = box(g, -3, 0, 3.55, 1.0, 2.1, 0.12, woodM, { collide: true });
-  box(g, -2.65, 1.0, 3.48, 0.08, 0.08, 0.06, 0xd4af37, { solid: false, cast: false });
+  const frontDoor = box(g, -3, 0, 3.55, 1.0, 2.1, 0.08, darkWood, { collide: true, round: 0.02, dynamic: true });
+  mesh(g, new THREE.SphereGeometry(0.04, 10, 8), solid(0xd4af37, 0.3, 1), -2.62, 1.0, 3.48, { dynamic: true });
+  for (const sx of [-3.55, -2.45]) box(g, sx, 0, 3.5, 0.1, 2.2, 0.06, whiteM, { solid: false });
+  box(g, -3, 2.15, 3.5, 1.2, 0.1, 0.06, whiteM, { solid: false });
   // leste com a passagem de serviço escondida (z de -2.4 a -1.2)
   box(g, 5.1, 0, 1.0, 0.2, H, 5.2, wallM, { collide: true });
   box(g, 5.1, 0, -3.0, 0.2, H, 1.2, wallM, { collide: true });
   box(g, 5.1, 2.1, -1.8, 0.2, 0.6, 1.2, wallM);
-  const panel = box(g, 5.08, 0, -1.8, 0.16, 2.1, 1.2, wallM, { collide: true });
+  const panel = box(g, 5.08, 0, -1.8, 0.16, 2.1, 1.2, wallM, { collide: true, dynamic: true });
   // divisória do quarto
   box(g, -1.2, 0, -2.1, 0.15, H, 3.0, wallM, { collide: true });
-  // corredor de serviço atrás da parede leste
+  // rodapés
+  for (const [x, z, w, d] of [[0, -3.48, 10.2, 0.04], [-4.98, 0, 0.04, 7.2], [1.35, 3.48, 7.7, 0.04], [4.98, 1.0, 0.04, 5.2]]) box(g, x, 0, z, w, 0.1, d, whiteM, { solid: false, cast: false });
+  // corredor de serviço
+  const darkM = solid(0x23211f, 0.9);
   box(g, 6.2, -0.1, -1.8, 2.2, 0.1, 1.6, darkM, { solid: false, cast: false });
   box(g, 6.2, 0, -2.7, 2.2, H, 0.2, darkM, { collide: true });
   box(g, 6.2, 0, -0.9, 2.2, H, 0.2, darkM, { collide: true });
   box(g, 7.3, 0, -1.8, 0.2, H, 1.6, darkM, { collide: true });
+  const stairGlow = new THREE.PointLight(0x9ab0ff, 3, 4, 2);
+  stairGlow.position.set(6.6, 2.2, -1.8);
+  g.add(stairGlow);
 
-  // janela (luar)
-  const win = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.1), new THREE.MeshBasicMaterial({ color: 0x5a78a8 }));
+  // janela com a cidade lá fora + cortinas
+  const winTex = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 160;
+    const x = c.getContext('2d');
+    const gr = x.createLinearGradient(0, 0, 0, 160); gr.addColorStop(0, '#0b1426'); gr.addColorStop(1, '#2a3550');
+    x.fillStyle = gr; x.fillRect(0, 0, 256, 160);
+    for (let i = 0; i < 9; i++) { const bx = i * 30 + Math.random() * 10, bh = 50 + Math.random() * 70; x.fillStyle = '#0a0d16'; x.fillRect(bx, 160 - bh, 26, bh); for (let k = 0; k < 14; k++) if (Math.random() < 0.4) { x.fillStyle = Math.random() < 0.8 ? '#ffcf8a' : '#9ab8ff'; x.fillRect(bx + 3 + (k % 3) * 8, 160 - bh + 6 + Math.floor(k / 3) * 12, 4, 6); } }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.1), new THREE.MeshBasicMaterial({ map: winTex, color: 0xcccccc }));
   win.position.set(0.8, 1.55, -3.49);
   g.add(win);
-  box(g, 0.8, 1.0, -3.45, 1.8, 0.08, 0.14, woodM, { solid: false });
+  for (const [x, y, w, h] of [[0.8, 0.98, 1.8, 0.07], [0.8, 2.1, 1.8, 0.07], [-0.1, 1.0, 0.07, 1.17], [1.7, 1.0, 0.07, 1.17], [0.8, 1.0, 0.04, 1.1]]) box(g, x, y, -3.46, w, h, 0.08, whiteM, { solid: false });
+  box(g, 0.8, 0.94, -3.38, 1.9, 0.05, 0.22, whiteM, { solid: false });
+  for (const sx of [-0.35, 1.95]) box(g, sx, 0.2, -3.4, 0.45, 2.3, 0.08, fabric(0x6a4a5a), { solid: false, round: 0.03 });
+  const winLight = new THREE.PointLight(0x7f9cff, 2.5, 6, 2);
+  winLight.position.set(0.8, 1.6, -2.6);
+  g.add(winLight);
 
-  // móveis
-  box(g, 0.8, 0, 1.7, 2.1, 0.45, 0.85, 0x3d4a5c, { collide: true });        // sofá
-  box(g, 0.8, 0.45, 2.05, 2.1, 0.45, 0.2, 0x3d4a5c);
-  box(g, 0.8, 0, 0.3, 1.1, 0.4, 0.6, woodM, { collide: true });              // mesa de centro
-  box(g, 3.65, 0, -3.15, 2.3, 0.92, 0.6, 0x8a8a84, { collide: true });       // bancada
-  box(g, 3.65, 0.92, -3.15, 2.3, 0.05, 0.62, 0x444444);
-  box(g, 4.8, 0, 0.6, 0.45, 2.1, 1.8, woodM, { collide: true });             // estante
-  for (let i = 0; i < 4; i++) box(g, 4.62, 0.3 + i * 0.5, 0.6, 0.1, 0.32, 1.5, [0x8b3a3a, 0x3a5a8b, 0x6b8b3a, 0x8b7a3a][i], { solid: false, cast: false });
-  box(g, -3.6, 0, -2.3, 2.0, 0.5, 2.2, 0x6a5a80, { collide: true });          // cama
-  box(g, -4.6, 0, 1.5, 0.9, 2.0, 1.6, woodM, { collide: true });             // guarda-roupa
-  box(g, -0.4, 0, 2.7, 0.6, 0.65, 0.6, woodM, { collide: true });            // mesinha do rádio
-  const radio = box(g, -0.4, 0.65, 2.7, 0.45, 0.25, 0.22, 0x4a3a2a);
-  box(g, 2.6, 0, 2.6, 0.7, 0.6, 0.6, 0x9a7a50, { collide: true });           // caixas de mudança
-  box(g, 2.6, 0.6, 2.6, 0.55, 0.45, 0.55, 0x8a6a40);
-  box(g, -2.4, 0, 0.9, 0.6, 0.5, 0.6, 0x9a7a50, { collide: true });
-  const photo = box(g, 4.55, 1.85, 0.2, 0.05, 0.22, 0.3, 0xddddcc, { solid: false });
+  // sofá
+  const sofaM = fabric(0x3d4a5c);
+  box(g, 0.8, 0.1, 1.7, 2.1, 0.35, 0.85, sofaM, { collide: true, top: 0.45, round: 0.08 });
+  box(g, 0.8, 0.1, 2.05, 2.1, 0.75, 0.22, sofaM, { round: 0.08 });
+  for (const sx of [-0.2, 1.8]) box(g, sx, 0.1, 1.7, 0.22, 0.55, 0.85, sofaM, { round: 0.08 });
+  for (const sx of [0.35, 1.25]) box(g, sx, 0.45, 1.65, 0.85, 0.14, 0.7, fabric(0x4a5a6e), { solid: false, round: 0.06 });
+  box(g, 1.5, 0.55, 1.95, 0.4, 0.35, 0.14, fabric(0xb5653a), { solid: false, round: 0.06 });
+  for (const [x, z] of [[-0.2, 1.35], [1.8, 1.35], [-0.2, 2.1], [1.8, 2.1]]) box(g, x, 0, z, 0.06, 0.1, 0.06, darkWood, { solid: false });
+  // tapete
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.8), fabric(0x7a4a3a));
+  rug.rotation.x = -Math.PI / 2; rug.position.set(0.8, 0.005, 0.6); rug.receiveShadow = true;
+  g.add(rug);
+  // mesa de centro
+  box(g, 0.8, 0.36, 0.3, 1.1, 0.05, 0.6, woodM, { collide: true, top: 0.42, round: 0.02 });
+  for (const [x, z] of [[0.3, 0.05], [1.3, 0.05], [0.3, 0.55], [1.3, 0.55]]) box(g, x, 0, z, 0.05, 0.36, 0.05, darkWood, { solid: false });
+  mesh(g, new THREE.CylinderGeometry(0.05, 0.04, 0.1, 12), solid(0xe8e4dc, 0.3), 0.6, 0.46, 0.25);
+  box(g, 1.0, 0.41, 0.35, 0.3, 0.03, 0.22, solid(0x8a3a3a, 0.8), { solid: false });
+  // cozinha: bancada com armários, pia, fogão, geladeira
+  box(g, 3.65, 0, -3.15, 2.3, 0.88, 0.6, solid(0x6a7a6e, 0.6), { collide: true, round: 0.02 });
+  box(g, 3.65, 0.88, -3.15, 2.36, 0.05, 0.64, solid(0x2a2a2c, 0.25, 0.1), { round: 0.01 });
+  for (let i = 0; i < 4; i++) { box(g, 2.75 + i * 0.6, 0.08, -2.84, 0.55, 0.72, 0.02, solid(0x7a8a7e, 0.55), { solid: false }); box(g, 2.75 + i * 0.6 + 0.2, 0.62, -2.82, 0.08, 0.02, 0.03, metalM, { solid: false }); }
+  box(g, 3.2, 0.9, -3.15, 0.5, 0.04, 0.38, metalM, { solid: false });
+  mesh(g, new THREE.CylinderGeometry(0.015, 0.015, 0.3, 8), metalM, 3.2, 1.08, -3.35);
+  for (const [x, z] of [[4.1, -3.0], [4.45, -3.0], [4.1, -3.3], [4.45, -3.3]]) mesh(g, new THREE.CylinderGeometry(0.1, 0.1, 0.02, 16), solid(0x111111, 0.4), x, 0.94, z);
+  box(g, 4.65, 0, -2.2, 0.75, 1.9, 0.7, solid(0xe8e8e4, 0.3, 0.1), { collide: true, round: 0.06 });
+  box(g, 4.26, 0.9, -2.0, 0.03, 0.6, 0.04, metalM, { solid: false });
+  // estante com livros
+  box(g, 4.8, 0, 0.6, 0.45, 2.1, 1.8, woodM, { collide: true });
+  const bookCols = [0x8b3a3a, 0x3a5a8b, 0x6b8b3a, 0x8b7a3a, 0x5a3a6b, 0x2a2a2a, 0xc8b89a];
+  for (let shelf = 0; shelf < 4; shelf++) {
+    box(g, 4.62, 0.22 + shelf * 0.5, 0.6, 0.38, 0.03, 1.7, darkWood, { solid: false });
+    let z = -0.2;
+    while (z < 1.35) { const bw = 0.04 + Math.random() * 0.05, bh = 0.25 + Math.random() * 0.15; box(g, 4.63, 0.25 + shelf * 0.5, z + bw / 2, 0.28, bh, bw, solid(bookCols[(Math.random() * bookCols.length) | 0], 0.8), { solid: false, cast: false }); z += bw + 0.005; if (Math.random() < 0.08) z += 0.15; }
+  }
+  // cama
+  box(g, -3.6, 0, -2.3, 2.0, 0.3, 2.2, darkWood, { collide: true, top: 0.55 });
+  box(g, -3.6, 0.3, -2.3, 1.9, 0.22, 2.1, fabric(0xe0dcd4), { solid: false, round: 0.08 });
+  box(g, -3.6, 0.5, -1.9, 1.95, 0.08, 1.4, fabric(0x6a5a80), { solid: false, round: 0.04 });
+  for (const sx of [-4.1, -3.1]) box(g, sx, 0.52, -3.1, 0.7, 0.16, 0.4, fabric(0xf0ece4), { solid: false, round: 0.07 });
+  box(g, -3.6, 0, -3.42, 2.05, 1.0, 0.08, darkWood, { solid: false, round: 0.02 });
+  // guarda-roupa
+  box(g, -4.6, 0, 1.5, 0.9, 2.1, 1.6, woodM, { collide: true, round: 0.02 });
+  box(g, -4.14, 0.05, 1.5, 0.02, 2.0, 0.02, darkWood, { solid: false });
+  for (const z of [1.42, 1.58]) mesh(g, new THREE.CylinderGeometry(0.012, 0.012, 0.2, 8), metalM, -4.13, 1.05, z);
+  // mesinha do rádio + rádio
+  box(g, -0.4, 0, 2.7, 0.6, 0.62, 0.6, woodM, { collide: true, round: 0.02 });
+  const radio = box(g, -0.4, 0.62, 2.7, 0.46, 0.26, 0.22, solid(0x5a3a26, 0.5), { round: 0.04, dynamic: true });
+  mesh(g, new THREE.CircleGeometry(0.08, 20), solid(0x1a1a1a, 0.9), -0.52, 0.75, 2.59, { dynamic: true }).rotation.y = Math.PI;
+  mesh(g, new THREE.CylinderGeometry(0.02, 0.02, 0.03, 10), glow(0xffb070, 2), -0.28, 0.78, 2.585, { dynamic: true }).rotation.x = Math.PI / 2;
+  // caixas de mudança com fita
+  const card = solid(0xa8834f, 0.9), tape = solid(0xc8b080, 0.5);
+  for (const [x, y, z, w, h, d] of [[2.6, 0, 2.6, 0.7, 0.6, 0.6], [2.6, 0.6, 2.6, 0.55, 0.45, 0.55], [-2.4, 0, 0.9, 0.6, 0.5, 0.6]]) {
+    box(g, x, y, z, w, h, d, card, { collide: y === 0, round: 0.015 });
+    box(g, x, y + h, z, w + 0.005, 0.005, 0.08, tape, { solid: false, cast: false });
+  }
+  // planta
+  mesh(g, new THREE.CylinderGeometry(0.18, 0.13, 0.35, 14), solid(0xb0603a, 0.8), 1.95, 0.175, -2.9);
+  for (let i = 0; i < 5; i++) { const l = mesh(g, new THREE.IcosahedronGeometry(0.22, 1), solid(0x3b6a33, 0.8), 1.95 + Math.cos(i) * 0.15, 0.55 + i * 0.07, -2.9 + Math.sin(i * 2) * 0.12); l.scale.set(1, 1.3, 1); }
+  const photo = box(g, 4.55, 1.85, 0.2, 0.05, 0.22, 0.3, whiteM, { solid: false, dynamic: true });
+  box(g, 4.52, 1.88, 0.2, 0.01, 0.16, 0.24, solid(0x6a7a8a, 0.6), { solid: false });
 
-  // luminária
-  box(g, -0.4, 0, 1.5, 0.08, 1.6, 0.08, darkM, { solid: false });
-  const shade = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.3, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd9a0, side: THREE.DoubleSide }));
-  shade.position.set(-0.4, 1.7, 1.5);
-  g.add(shade);
-  const lamp = new THREE.PointLight(0xffc98a, 2.2, 9, 1.6);
-  lamp.position.set(-0.4, 1.6, 1.5);
+  // luminária de chão (luz quente)
+  mesh(g, new THREE.CylinderGeometry(0.15, 0.18, 0.04, 16), metalM, -0.4, 0.02, 1.5);
+  mesh(g, new THREE.CylinderGeometry(0.015, 0.015, 1.6, 8), metalM, -0.4, 0.82, 1.5);
+  const shade = mesh(g, new THREE.CylinderGeometry(0.16, 0.26, 0.3, 20, 1, true), new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffc58a, emissiveIntensity: 1.6, side: THREE.DoubleSide }), -0.4, 1.7, 1.5, { cast: false, dynamic: true });
+  const lamp = new THREE.PointLight(0xffb878, 9, 10, 2);
+  lamp.position.set(-0.4, 1.55, 1.5);
+  lamp.castShadow = true;
+  lamp.shadow.mapSize.set(512, 512);
+  lamp.shadow.bias = -0.002;
   g.add(lamp);
+  const fill = new THREE.PointLight(0xffd8b0, 2.5, 8, 2);
+  fill.position.set(-3.2, 2.2, -1.5);
+  g.add(fill);
+  void shade;
 
   // --- Camada Resonance: contorno da porta de serviço e marcas de mão
   const outline = new THREE.Group();
@@ -215,9 +288,9 @@ export function build(ctx) {
     }
     if (p.flick > 0) {
       p.flick -= dt;
-      lamp.intensity = Math.random() < 0.3 ? 0.2 : 2.2;
+      lamp.intensity = Math.random() < 0.3 ? 0.5 : 9;
       if (Math.random() < 0.1) sfx.flicker();
-      if (p.flick <= 0) lamp.intensity = 2.2;
+      if (p.flick <= 0) lamp.intensity = 9;
     }
     // saída
     if (p.doorOpen && player.pos.x > 5.6) ctx.goZone('hub', 'arrive');
