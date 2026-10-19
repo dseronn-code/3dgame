@@ -3,8 +3,8 @@ import { THREE, scene, camera, world, ghostMat, clamp, lerp, rand, angleDiff } f
 import { makeCharacter, ghostMaterial, rotateBoneWorld } from './assets.js';
 import { Sensor } from './sensor.js';
 import { makePanner, setPannerPos, voice, sfx } from './audio.js';
-import { subtitle, $ } from './ui.js';
-import { player } from './player.js';
+import { subtitle, say, $ } from './ui.js';
+import { player, bodies } from './player.js';
 import { S, addEcho } from './state.js';
 
 export const Z = {
@@ -16,6 +16,7 @@ export function resetZone() {
   for (const e of Z.echoes) e.dispose();
   if (Z.threat) Z.threat.dispose();
   Object.assign(Z, { interactables: [], echoes: [], npcs: [], layered: [], updaters: [], peakHandlers: [], threat: null, current: null });
+  bodies.length = 0;
 }
 
 // ---------------------------------------------------------------------
@@ -202,6 +203,7 @@ export class NPC {
       world.group.add(aura);
       layered(aura, 'res');
     }
+    bodies.push({ pos: this.pos, r: 0.35 });
     this.it = interactable({
       pos: this.pos, radius: this.radius, label: def.label || `Falar com ${this.name}`, mesh: this.ch.root,
       onUse: async () => { this.talking = true; await this.talk(); this.talking = false; },
@@ -213,9 +215,9 @@ export class NPC {
     const ch = this.ch;
     if (!frozen) {
       this.t += dt;
-      ch.gesture('agree', this.talking ? 0.35 + Math.sin(this.t * 1.3) * 0.25 : 0);
-      ch.gesture('sad_pose', this.mood === 'sad' ? 0.6 : 0);
+      ch.talking = this.talking && !this.sit;
       if (this.talking) ch.talkT = 0.2;
+      ch.locomote(0, 0, dt);
       ch.update(dt);
       if (this.sit) this.sitPose();
       // olha para o jogador quando perto
@@ -229,7 +231,7 @@ export class NPC {
         rotateBoneWorld(ch.bones.Head, new THREE.Vector3(0, 1, 0), this.headYaw * 0.4);
       }
     }
-    if (this.frozenInRes) for (const m of ch.mats) m.emissive.setScalar(frozen ? 0.1 : 0);
+    if (this.frozenInRes) for (const m of ch.mats) if (m.emissive) m.emissive.setScalar(frozen ? 0.1 : 0);
   }
   sitPose() {
     const ch = this.ch;
@@ -242,6 +244,65 @@ export class NPC {
       rotateBoneWorld(ch.bones[side + 'ForeArm'], right, -0.6);
     }
     ch.model.position.y = ch.baseY - this.sitDrop;
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Figurantes: andam por rotas próprias, não influenciam a história.
+//  Na Resonance ficam congelados (não existem na camada oculta).
+export class Walker {
+  constructor(def) {
+    Object.assign(this, { speed: 1.25, pause: [1, 4], lines: ['Boa noite.'], name: 'Pedestre' }, def);
+    this.ch = makeCharacter(this.id, { idleVariant: def.idleVariant });
+    this.pos = this.path[0].clone();
+    this.i = 1;
+    this.wait = 0;
+    this.facing = 0;
+    this.ch.root.position.copy(this.pos);
+    world.group.add(this.ch.root);
+    this.body = { pos: this.pos, r: 0.32 };
+    bodies.push(this.body);
+    this.lineI = 0;
+    this.talking = false;
+    this.it = interactable({
+      pos: this.pos, radius: 1.8, label: 'Falar', mesh: this.ch.root,
+      onUse: async () => {
+        this.talking = true;
+        await say([{ who: this.name, text: this.lines[this.lineI++ % this.lines.length], pitch: this.pitch || 190 }]);
+        this.talking = false;
+      },
+    });
+    Z.npcs.push(this);
+  }
+  update(dt, R) {
+    const frozen = R > 0.6;
+    for (const m of this.ch.mats) if (m.emissive) m.emissive.setScalar(frozen ? 0.1 : 0);
+    if (frozen) return;
+    let speed = 0;
+    const toP = Math.hypot(player.pos.x - this.pos.x, player.pos.z - this.pos.z);
+    if (this.talking || this.path.length < 2) {
+      if (toP < 4) this.facing += angleDiff(this.facing, Math.atan2(player.pos.x - this.pos.x, player.pos.z - this.pos.z)) * Math.min(1, dt * 4);
+    } else if (this.wait > 0) this.wait -= dt;
+    else {
+      const tgt = this.path[this.i];
+      const dx = tgt.x - this.pos.x, dz = tgt.z - this.pos.z;
+      const d = Math.hypot(dx, dz);
+      // dá passagem se o jogador estiver bem na frente
+      const ahead = toP < 1.3 && ((player.pos.x - this.pos.x) * dx + (player.pos.z - this.pos.z) * dz) > 0;
+      if (d < 0.25) { this.i = (this.i + 1) % this.path.length; this.wait = rand(this.pause[0], this.pause[1]); }
+      else if (!ahead) {
+        speed = this.speed;
+        this.pos.x += (dx / d) * speed * dt;
+        this.pos.z += (dz / d) * speed * dt;
+        this.facing += angleDiff(this.facing, Math.atan2(dx, dz)) * Math.min(1, dt * 6);
+      }
+    }
+    this.ch.talking = this.talking;
+    if (this.talking) this.ch.talkT = 0.2;
+    this.ch.locomote(speed, 0, dt);
+    this.ch.update(dt);
+    this.ch.root.position.copy(this.pos);
+    this.ch.root.rotation.y = this.facing;
   }
 }
 

@@ -23,15 +23,14 @@ export const player = {
   sprintTime: 0,
 };
 
-// Ari: avatar com casaco escuro (criado depois que os modelos carregam)
+// Ari, o protagonista (criado depois que os modelos carregam)
 export function initPlayerModel() {
-  player.model = makeCharacter('avatar', {
-    height: 1.76,
-    tint: { Wolf3D_Outfit_Top: 0x4a5866, Wolf3D_Outfit_Bottom: 0x2e3440, Wolf3D_Outfit_Footwear: 0x3a3a3a, Wolf3D_Headwear: 0x2a2a30 },
-    hide: ['Wolf3D_Beard'],
-  });
+  player.model = makeCharacter('ari');
   scene.add(player.model.root);
 }
+
+// corpos de NPCs/figurantes (o jogador não atravessa)
+export const bodies = [];
 
 export const cam = { yaw: 0, pitch: -0.15, maxDist: 3.4, dist: 3.4, lookTotal: 0 };
 
@@ -218,6 +217,7 @@ export function updatePlayer(dt) {
   player.pos.x += wx * speed * dt;
   player.pos.z += wz * speed * dt;
   resolveCollisions(player.pos, 0.32, 0);
+  for (const b of bodies) { const dx = player.pos.x - b.pos.x, dz = player.pos.z - b.pos.z, d = Math.hypot(dx, dz), r = 0.32 + b.r; if (d < r && d > 1e-4) { player.pos.x = b.pos.x + dx / d * r; player.pos.z = b.pos.z + dz / d * r; } }
   player.movedDist += before.distanceTo(player.pos);
   if (player.sprinting) player.sprintTime += dt;
 

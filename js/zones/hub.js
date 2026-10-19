@@ -2,7 +2,7 @@
 import { THREE, world, box, mesh, ghostMat, isTouch, rand, addCollider } from '../engine.js';
 import { M, plaster, solid, glow, shopWindow, litWindow } from '../gfx.js';
 import { building, lampPost, bench, tree, car, trashBin, hydrant, planter, stringLights, fountain } from '../props.js';
-import { Z, Echo, NPC, Estatica, interactable, layered } from '../systems.js';
+import { Z, Echo, NPC, Walker, Estatica, interactable, layered } from '../systems.js';
 import { player } from '../player.js';
 import { Sensor, onPeak, isAbsoluteSilence } from '../sensor.js';
 import { sfx, setPannerPos, makePanner } from '../audio.js';
@@ -246,7 +246,7 @@ export function build(ctx) {
   // ---------- Iara (irmã da Lia)
   new NPC({
     id: 'iara', name: 'Iara', pos: new THREE.Vector3(-6, 0, 8.4), facing: Math.PI,
-    look: { base: 'michelle', height: 1.66 },
+    look: { base: 'iara' },
     talk: async () => {
       if (!flag('met_iara')) {
         await say([
@@ -295,7 +295,7 @@ export function build(ctx) {
   // ---------- Bruno (banca) — comenta o quanto você usa a Resonance; não existe na camada oculta
   new NPC({
     id: 'bruno', name: 'Bruno', pos: new THREE.Vector3(11.2, 0, -10.9), facing: -Math.PI * 0.75, frozenInRes: true,
-    look: { base: 'avatar', height: 1.74, hide: ['Wolf3D_Beard'], tint: { Wolf3D_Outfit_Top: 0xd8803a, Wolf3D_Outfit_Bottom: 0x3a4a6a, Wolf3D_Headwear: 0x2a5a4a } },
+    look: { base: 'bruno' },
     talk: async () => {
       if (Sensor.R > 0.6) {
         await say([{ who: 'Ari', text: 'Ele está parado. Como uma foto. Na camada oculta, o Bruno simplesmente… não está aqui.', voice: false }]);
@@ -326,7 +326,7 @@ export function build(ctx) {
   // ---------- Dona Celeste — só revela o importante na Resonance
   new NPC({
     id: 'celeste', name: 'Dona Celeste', pos: new THREE.Vector3(2.5, 0, 42.42), facing: Math.PI, sit: true, hasHiddenLayer: true,
-    look: { base: 'michelle', height: 1.58, tintAll: 0xcfc2e6 },
+    look: { base: 'celeste' },
     talk: async () => {
       meet('celeste', 'Dona Celeste', 'Moradora antiga. Senta no banco da avenida sul toda noite.');
       if (Sensor.R > 0.6) {
@@ -356,7 +356,7 @@ export function build(ctx) {
   // ---------- Seu Otávio — rabugento; na Resonance fala da caixa da Lia
   new NPC({
     id: 'otavio', name: 'Seu Otávio', pos: new THREE.Vector3(42.6, 0, 1.2), facing: -Math.PI / 2, hasHiddenLayer: true, radius: 2.7,
-    look: { base: 'avatar', height: 1.72, tint: { Wolf3D_Outfit_Top: 0x5a6a5a, Wolf3D_Outfit_Bottom: 0x2a2a2a, Wolf3D_Beard: 0xb8b8b8, Wolf3D_Headwear: 0x6a6a6a } },
+    look: { base: 'otavio' },
     talk: async () => {
       meet('otavio', 'Seu Otávio', 'Conserta rádios na avenida leste. Mal-humorado.');
       if (Sensor.R > 0.6) {
@@ -382,6 +382,17 @@ export function build(ctx) {
   interactable({ pos: new THREE.Vector3(-6, 0, 8.8), label: 'Cartazes', mesh: board, radius: 1.6, enabled: () => true, onUse: async () => {
     await say([{ who: 'Ari', text: '“DESAPARECIDA: LIA MOURA, 29 anos. Vista pela última vez perto da Estação Aurora.” A foto é a mesma do meu apartamento.', voice: false }]);
   } });
+
+  // ---------- Figurantes (não influenciam a história; cada um com um visual próprio)
+  const V = (x, z) => new THREE.Vector3(x, 0, z);
+  new Walker({ id: 'extra1', name: 'Rapaz de camiseta preta', path: [V(-14.5, -14.5), V(14.5, -14.5), V(14.5, 14.5), V(-14.5, 14.5)], pause: [0.5, 2],
+    lines: ['Foi mal, tô atrasado.', 'Essa praça fica sinistra de noite, né?', 'Ouviu esse chiado? Deve ser o transformador.'], pitch: 150 });
+  new Walker({ id: 'extra2', name: 'Moça do café', path: [V(-39, -1.2), V(-30, -1.6), V(-22, -2.4), V(-30, -1.6)], pause: [2, 6],
+    lines: ['O café do Lume é o melhor do bairro.', 'Eu via uma moça gravando os sons daqui. Faz tempo que não vejo.'], pitch: 230 });
+  new Walker({ id: 'extra3', name: 'Moça de óculos', path: [V(2.4, 38), V(2.4, 24), V(-2.4, 24), V(-2.4, 38)], speed: 1.45, pause: [1, 3],
+    lines: ['Tô voltando da academia, sem tempo, desculpa!', 'Cuidado com a calçada molhada.'], pitch: 220 });
+  new Walker({ id: 'extra4', name: 'Garota esperando', path: [V(7.5, -17.5)], idleVariant: true,
+    lines: ['Tô esperando uma amiga. Ela tá meia hora atrasada.', 'Você também ouve um zumbido aqui perto da banca?'], pitch: 240 });
 
   // =====================================================================
   //  ECOS DA LIA (silêncio real em 3 pontos)
